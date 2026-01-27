@@ -1,0 +1,43 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx create-next-app:*)",
+      "Bash(npm install:*)",
+      "Bash(npm run build:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(npm run dev:*)",
+      "Bash(taskkill /F /PID 82428)",
+      "Bash(taskkill:*)",
+      "Bash(dir:*)",
+      "Bash(npx tsc:*)",
+      "Bash(curl:*)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:api.github.com)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)"
+    ]
+  },
+  "mcpServers": {
+    "context7": {
+      "url": "https://mcp.context7.com/mcp",
+      "headers": {
+        "CONTEXT7_API_KEY": "ctx7sk-d14118c2-0b76-4d8f-a052-216b22a17867"
+      }
+    },
+    "supabase": {
+      "url": "https://mcp.supabase.com/mcp?project_ref=nvnbkcxolbdavnsbwqkx",
+      "headers": {}
+    },
+    "firecrawl": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "firecrawl-mcp"
+      ],
+      "env": {
+        "FIRECRAWL_API_KEY": "fc-1442d78502f04f75a119b980eb5ff573"
+      }
+    }
+  }
+}
