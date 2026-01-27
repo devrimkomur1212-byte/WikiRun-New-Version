@@ -15,7 +15,8 @@
       "WebFetch(domain:raw.githubusercontent.com)",
       "WebFetch(domain:api.github.com)",
       "Bash(netstat:*)",
-      "Bash(findstr:*)"
+      "Bash(findstr:*)",
+      "WebFetch(domain:wiki-run-new-version-31r1.vercel.app)"
     ]
   },
   "mcpServers": {
