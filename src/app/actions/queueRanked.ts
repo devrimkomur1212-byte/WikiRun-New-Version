@@ -23,6 +23,16 @@ export async function queueForRanked(routeId: string) {
     throw new Error("Unauthorized");
   }
 
+  // Get user's ELO
+  const { data: profileData } = await supabase
+    .from("profiles")
+    .select("elo_rating")
+    .eq("id", user.id)
+    .single();
+
+  const profile = profileData as { elo_rating: number } | null;
+  const userElo = profile?.elo_rating ?? 1000;
+
   // Check if user is already in queue
   const { data: existingQueue } = await supabase
     .from("queue_ranked")
@@ -154,6 +164,7 @@ export async function queueForRanked(routeId: string) {
     const queueData: QueueInsert = {
       user_id: user.id,
       route_id: routeId,
+      elo_rating: userElo,
     };
 
     const { error: queueError } = await supabase
@@ -242,6 +253,21 @@ export async function checkQueueStatus() {
 
     if (runData) {
       const run = runData as RunRow;
+
+      // Get opponent's ELO
+      const opponentId =
+        pendingMatch.player1_id === user.id
+          ? pendingMatch.player2_id
+          : pendingMatch.player1_id;
+
+      const { data: opponentProfileData } = await supabase
+        .from("profiles")
+        .select("elo_rating")
+        .eq("id", opponentId)
+        .single();
+
+      const opponentProfile = opponentProfileData as { elo_rating: number } | null;
+
       return {
         inQueue: false,
         matched: true,
@@ -249,6 +275,8 @@ export async function checkQueueStatus() {
         runId: run.id,
         startTitle: run.start_title,
         targetTitle: run.target_title,
+        startTime: pendingMatch.start_time,
+        opponentElo: opponentProfile?.elo_rating ?? 1000,
       };
     }
   }

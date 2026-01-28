@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { RANKS } from "@/lib/elo/ranks";
-import { startRankedRun } from "@/app/actions/startRankedRun";
+import { checkPendingMatch } from "@/app/actions/queueRanked";
+import { MatchmakingQueue } from "@/components/matchmaking/MatchmakingQueue";
 import type { Tables } from "@/types/database.types";
 
 type Profile = Tables<"profiles">;
@@ -17,12 +18,7 @@ export default function PlayPage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [topPlayers, setTopPlayers] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
-  const [starting, setStarting] = useState(false);
-  const [generatedRoute, setGeneratedRoute] = useState<{
-    startTitle: string;
-    targetTitle: string;
-    difficulty: string;
-  } | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
 
   useEffect(() => {
@@ -41,6 +37,20 @@ export default function PlayPage() {
           .eq("id", authUser.id)
           .single();
         setProfile(profileData as Profile | null);
+
+        // Check for pending match (user may have an ongoing match)
+        try {
+          const pending = await checkPendingMatch();
+          if (pending) {
+            // User has an ongoing match, redirect to it
+            router.push(
+              `/run/${pending.runId}/article/${encodeURIComponent(pending.startTitle)}`
+            );
+            return;
+          }
+        } catch (error) {
+          console.error("Failed to check pending match:", error);
+        }
       }
 
       // Fetch top players for leaderboard preview
@@ -56,7 +66,7 @@ export default function PlayPage() {
     };
 
     fetchData();
-  }, []);
+  }, [router]);
 
   const handlePlayClick = async () => {
     if (!user) {
@@ -64,35 +74,12 @@ export default function PlayPage() {
       return;
     }
 
-    setStarting(true);
-
-    try {
-      // Generate random route
-      const response = await fetch("/api/random-route");
-      if (!response.ok) {
-        throw new Error("Failed to generate route");
-      }
-
-      const route = await response.json();
-      setGeneratedRoute(route);
-
-      // Create a run in the database using server action
-      const result = await startRankedRun(route.startTitle, route.targetTitle);
-
-      // Navigate to the game
-      router.push(
-        `/run/${result.runId}/article/${encodeURIComponent(result.startTitle)}`
-      );
-    } catch (error) {
-      console.error("Failed to start game:", error);
-      setStarting(false);
-    }
+    // Start matchmaking
+    setIsSearching(true);
   };
 
-  const difficultyColors = {
-    easy: "text-green-500",
-    medium: "text-yellow-500",
-    hard: "text-red-500",
+  const handleCancelSearch = () => {
+    setIsSearching(false);
   };
 
   if (loading) {
@@ -139,58 +126,59 @@ export default function PlayPage() {
           </div>
         )}
 
-        {/* Main Play Button */}
-        <div className="bg-card rounded-lg border p-8 mb-8 text-center">
-          {generatedRoute && starting ? (
-            <div className="space-y-4">
-              <div className="text-lg text-muted-foreground">Starting game...</div>
-              <div className="flex items-center justify-center gap-4 text-xl">
-                <span className="font-semibold">{generatedRoute.startTitle}</span>
-                <span className="text-muted-foreground">to</span>
-                <span className="font-semibold text-primary">{generatedRoute.targetTitle}</span>
-              </div>
-              <div className={`text-sm ${difficultyColors[generatedRoute.difficulty as keyof typeof difficultyColors]}`}>
-                {generatedRoute.difficulty.charAt(0).toUpperCase() + generatedRoute.difficulty.slice(1)} Route
-              </div>
-            </div>
-          ) : (
-            <>
-              <h2 className="text-2xl font-semibold mb-4">Ready to Play?</h2>
-              <p className="text-muted-foreground mb-6">
-                Click play to get a random Wikipedia route and start your run!
-              </p>
-              <button
-                onClick={handlePlayClick}
-                disabled={starting}
-                className="px-8 py-4 text-xl font-semibold rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-              >
-                {starting ? "Generating Route..." : "Play Now"}
-              </button>
-            </>
-          )}
-        </div>
+        {/* Matchmaking UI */}
+        {isSearching && user ? (
+          <div className="mb-8">
+            <MatchmakingQueue
+              userId={user.id}
+              userElo={profile?.elo_rating ?? 1000}
+              onCancel={handleCancelSearch}
+            />
+          </div>
+        ) : (
+          /* Main Play Button */
+          <div className="bg-card rounded-lg border p-8 mb-8 text-center">
+            <h2 className="text-2xl font-semibold mb-4">Ready to Play?</h2>
+            <p className="text-muted-foreground mb-6">
+              Click play to find an opponent with similar ELO and race!
+            </p>
+            <button
+              onClick={handlePlayClick}
+              className="px-8 py-4 text-xl font-semibold rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-all"
+            >
+              Find Match
+            </button>
+          </div>
+        )}
 
         {/* How It Works */}
-        <div className="grid md:grid-cols-3 gap-6 mb-12">
+        <div className="grid md:grid-cols-4 gap-6 mb-12">
           <div className="bg-card rounded-lg border p-6">
             <div className="text-3xl mb-3">1</div>
-            <h3 className="font-semibold mb-2">Get Random Route</h3>
+            <h3 className="font-semibold mb-2">Find Match</h3>
             <p className="text-sm text-muted-foreground">
-              Press play to receive a randomly generated start and target article. Each game is unique!
+              Press play to join the queue. You&apos;ll be matched with an opponent of similar ELO.
             </p>
           </div>
           <div className="bg-card rounded-lg border p-6">
             <div className="text-3xl mb-3">2</div>
-            <h3 className="font-semibold mb-2">Navigate Wikipedia</h3>
+            <h3 className="font-semibold mb-2">Same Route</h3>
             <p className="text-sm text-muted-foreground">
-              Click only on links within articles to navigate from start to target as fast as possible.
+              Both players race the same Wikipedia route. Countdown syncs your start!
             </p>
           </div>
           <div className="bg-card rounded-lg border p-6">
             <div className="text-3xl mb-3">3</div>
-            <h3 className="font-semibold mb-2">Climb Leaderboard</h3>
+            <h3 className="font-semibold mb-2">Race to Win</h3>
             <p className="text-sm text-muted-foreground">
-              Your time affects your ELO rating. Compete for a spot in the top 50 Elder ranks!
+              Navigate from start to target as fast as possible. Fastest time wins!
+            </p>
+          </div>
+          <div className="bg-card rounded-lg border p-6">
+            <div className="text-3xl mb-3">4</div>
+            <h3 className="font-semibold mb-2">Gain ELO</h3>
+            <p className="text-sm text-muted-foreground">
+              Winner gains ELO, loser loses ELO. Climb to the top 50 Elder ranks!
             </p>
           </div>
         </div>
@@ -233,9 +221,8 @@ export default function PlayPage() {
             <h2 className="text-2xl font-semibold mb-6">About Ranked Mode</h2>
             <div className="bg-card rounded-lg border p-6 space-y-4">
               <p className="text-muted-foreground">
-                In Ranked mode, you&apos;ll receive randomly generated Wikipedia routes.
-                The routes are pulled from obscure topics across various categories including
-                medieval history, extinct animals, minerals, islands, and more.
+                In Ranked mode, you&apos;ll be matched with an opponent of similar ELO
+                (within ±200). Both players race the exact same Wikipedia route simultaneously.
               </p>
               <p className="text-muted-foreground">
                 Your goal is to navigate from the start article to the target article by
@@ -243,8 +230,8 @@ export default function PlayPage() {
                 just pure navigation skill and Wikipedia knowledge!
               </p>
               <p className="text-muted-foreground">
-                Each completed run affects your ELO rating. Faster times and fewer clicks
-                mean better scores. Can you reach the Elder ranks?
+                The player who reaches the target article first wins. Winner gains ELO points,
+                loser loses ELO points. Can you reach the Elder ranks in the top 50?
               </p>
             </div>
           </div>

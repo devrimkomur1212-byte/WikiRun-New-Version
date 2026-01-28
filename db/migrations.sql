@@ -23,7 +23,7 @@ CREATE TABLE routes (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Matches table (async PvP pairs)
+-- Matches table (sync PvP pairs with real-time matchmaking)
 CREATE TABLE matches (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   route_id UUID REFERENCES routes(id) NOT NULL,
@@ -36,7 +36,8 @@ CREATE TABLE matches (
   expires_at TIMESTAMPTZ DEFAULT NOW() + INTERVAL '24 hours',
   winner_id UUID REFERENCES profiles(id),
   elo_delta_p1 INTEGER,
-  elo_delta_p2 INTEGER
+  elo_delta_p2 INTEGER,
+  start_time TIMESTAMPTZ  -- For synchronized match start countdown
 );
 
 -- Runs table (individual run attempts)
@@ -79,11 +80,12 @@ CREATE TABLE user_achievements (
   PRIMARY KEY (user_id, achievement_id)
 );
 
--- Ranked queue
+-- Ranked queue (ELO-based matchmaking)
 CREATE TABLE queue_ranked (
   user_id UUID PRIMARY KEY REFERENCES profiles(id) ON DELETE CASCADE,
-  route_id UUID REFERENCES routes(id) NOT NULL,
-  queued_at TIMESTAMPTZ DEFAULT NOW()
+  route_id UUID REFERENCES routes(id),  -- Nullable, set when matched
+  queued_at TIMESTAMPTZ DEFAULT NOW(),
+  elo_rating INTEGER DEFAULT 1000  -- For ELO-based matching
 );
 
 -- Indexes for performance
@@ -93,6 +95,8 @@ CREATE INDEX idx_runs_is_completed ON runs(is_completed);
 CREATE INDEX idx_matches_status ON matches(status);
 CREATE INDEX idx_profiles_elo ON profiles(elo_rating DESC);
 CREATE INDEX idx_queue_ranked_route ON queue_ranked(route_id);
+CREATE INDEX idx_queue_ranked_elo ON queue_ranked(elo_rating);
+CREATE INDEX idx_queue_ranked_queued_at ON queue_ranked(queued_at);
 
 -- Enable Row Level Security
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
@@ -183,3 +187,49 @@ DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- ===========================================
+-- Service Role Policies (for matchmaking)
+-- ===========================================
+
+-- Allow service role to insert matches (for matchmaking)
+CREATE POLICY "Service role can insert matches"
+  ON matches FOR INSERT
+  TO service_role
+  WITH CHECK (true);
+
+-- Allow service role to update matches (for setting run IDs, winner, etc.)
+CREATE POLICY "Service role can update matches"
+  ON matches FOR UPDATE
+  TO service_role
+  USING (true);
+
+-- Allow service role to read all queue entries (for matchmaking)
+CREATE POLICY "Service role can view all queue entries"
+  ON queue_ranked FOR SELECT
+  TO service_role
+  USING (true);
+
+-- Allow service role to delete queue entries (when matched)
+CREATE POLICY "Service role can delete queue entries"
+  ON queue_ranked FOR DELETE
+  TO service_role
+  USING (true);
+
+-- Allow service role to insert runs (for opponent)
+CREATE POLICY "Service role can insert runs"
+  ON runs FOR INSERT
+  TO service_role
+  WITH CHECK (true);
+
+-- Allow service role to insert routes
+CREATE POLICY "Service role can insert routes"
+  ON routes FOR INSERT
+  TO service_role
+  WITH CHECK (true);
+
+-- ===========================================
+-- Enable Supabase Realtime on matches table
+-- (Run this separately if it fails - some Supabase versions handle this differently)
+-- ===========================================
+-- ALTER PUBLICATION supabase_realtime ADD TABLE matches;

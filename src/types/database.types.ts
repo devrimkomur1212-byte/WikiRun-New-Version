@@ -78,6 +78,7 @@ export type Database = {
           winner_id: string | null;
           elo_delta_p1: number | null;
           elo_delta_p2: number | null;
+          start_time: string | null;
         };
         Insert: {
           id?: string;
@@ -92,6 +93,7 @@ export type Database = {
           winner_id?: string | null;
           elo_delta_p1?: number | null;
           elo_delta_p2?: number | null;
+          start_time?: string | null;
         };
         Update: {
           id?: string;
@@ -106,6 +108,7 @@ export type Database = {
           winner_id?: string | null;
           elo_delta_p1?: number | null;
           elo_delta_p2?: number | null;
+          start_time?: string | null;
         };
       };
       runs: {
@@ -206,16 +209,19 @@ export type Database = {
           user_id: string;
           route_id: string;
           queued_at: string;
+          elo_rating: number;
         };
         Insert: {
           user_id: string;
-          route_id: string;
+          route_id?: string;
           queued_at?: string;
+          elo_rating: number;
         };
         Update: {
           user_id?: string;
           route_id?: string;
           queued_at?: string;
+          elo_rating?: number;
         };
       };
     };
