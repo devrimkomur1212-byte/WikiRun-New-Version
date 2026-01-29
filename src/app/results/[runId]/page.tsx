@@ -68,131 +68,129 @@ export default async function ResultsPage({ params }: Props) {
   const routeTitles = run.route_titles as string[];
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="max-w-2xl mx-auto">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold mb-2">Run Complete!</h1>
-          <p className="text-muted-foreground">
-            {run.mode === "ranked" ? "Ranked Match" : "Training Run"}
-          </p>
+    <div className="py-8 space-y-6 max-w-2xl mx-auto">
+      {/* Header */}
+      <div className="text-center animate-scale-in">
+        <h1 className="text-display-sm mb-2">Run Complete!</h1>
+        <p className="text-muted-foreground">
+          {run.mode === "ranked" ? "Ranked Match" : "Training Run"}
+        </p>
+      </div>
+
+      {/* Route Info */}
+      <div className="rounded-2xl border border-border/40 bg-card p-6 shadow-soft animate-slide-up">
+        <div className="flex items-center justify-center gap-4 text-lg">
+          <span className="px-3 py-1.5 rounded-lg bg-secondary font-semibold">{run.start_title}</span>
+          <span className="text-muted-foreground">→</span>
+          <span className="px-3 py-1.5 rounded-lg bg-primary/10 font-semibold text-primary">{run.target_title}</span>
+        </div>
+      </div>
+
+      {/* Stats Grid */}
+      <div className="grid grid-cols-3 gap-4 animate-slide-up" style={{ animationDelay: '100ms' }}>
+        <div className="rounded-2xl border border-border/40 bg-card p-5 text-center shadow-soft">
+          <div className="text-3xl sm:text-4xl font-bold font-mono tracking-tight">
+            {formatTime(run.active_time_ms)}
+          </div>
+          <div className="text-sm text-muted-foreground mt-1">Time</div>
         </div>
 
-        {/* Route Info */}
-        <div className="bg-card rounded-lg border p-6 mb-6">
-          <div className="flex items-center justify-center gap-4 text-lg">
-            <span className="font-semibold">{run.start_title}</span>
-            <span className="text-muted-foreground">→</span>
-            <span className="font-semibold text-primary">{run.target_title}</span>
-          </div>
+        <div className="rounded-2xl border border-border/40 bg-card p-5 text-center shadow-soft">
+          <div className="text-3xl sm:text-4xl font-bold tracking-tight">{run.clicks_count}</div>
+          <div className="text-sm text-muted-foreground mt-1">Clicks</div>
         </div>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-3 gap-4 mb-6">
-          <div className="bg-card rounded-lg border p-4 text-center">
-            <div className="text-3xl font-bold font-mono">
-              {formatTime(run.active_time_ms)}
-            </div>
-            <div className="text-sm text-muted-foreground">Time</div>
+        <div className="rounded-2xl border border-border/40 bg-card p-5 text-center shadow-soft">
+          <div
+            className={`text-3xl sm:text-4xl font-bold tracking-tight ${
+              run.misses_count > 0 ? "text-destructive" : "text-green-500"
+            }`}
+          >
+            {run.misses_count}
           </div>
-
-          <div className="bg-card rounded-lg border p-4 text-center">
-            <div className="text-3xl font-bold">{run.clicks_count}</div>
-            <div className="text-sm text-muted-foreground">Clicks</div>
-          </div>
-
-          <div className="bg-card rounded-lg border p-4 text-center">
-            <div
-              className={`text-3xl font-bold ${
-                run.misses_count > 0 ? "text-destructive" : "text-green-500"
-              }`}
-            >
-              {run.misses_count}
-            </div>
-            <div className="text-sm text-muted-foreground">Misses</div>
-          </div>
+          <div className="text-sm text-muted-foreground mt-1">Misses</div>
         </div>
+      </div>
 
-        {/* Route Taken */}
-        <div className="bg-card rounded-lg border p-6 mb-6">
-          <h2 className="font-semibold mb-4">Route Taken</h2>
-          <div className="flex flex-wrap items-center gap-2">
-            {routeTitles.map((title, index) => (
-              <span key={index} className="flex items-center">
-                <span
-                  className={`px-2 py-1 rounded text-sm ${
-                    index === 0
-                      ? "bg-secondary"
-                      : index === routeTitles.length - 1
-                      ? "bg-primary/10 text-primary font-medium"
-                      : "bg-muted"
-                  }`}
-                >
-                  {title}
-                </span>
-                {index < routeTitles.length - 1 && (
-                  <span className="mx-1 text-muted-foreground">→</span>
-                )}
+      {/* Route Taken */}
+      <div className="rounded-2xl border border-border/40 bg-card p-6 shadow-soft animate-slide-up" style={{ animationDelay: '150ms' }}>
+        <h2 className="font-semibold mb-4">Route Taken</h2>
+        <div className="flex flex-wrap items-center gap-2">
+          {routeTitles.map((title, index) => (
+            <span key={index} className="flex items-center">
+              <span
+                className={`px-2.5 py-1 rounded-lg text-sm ${
+                  index === 0
+                    ? "bg-secondary font-medium"
+                    : index === routeTitles.length - 1
+                    ? "bg-primary/10 text-primary font-semibold"
+                    : "bg-muted"
+                }`}
+              >
+                {title}
               </span>
-            ))}
-          </div>
+              {index < routeTitles.length - 1 && (
+                <span className="mx-1.5 text-muted-foreground/50">→</span>
+              )}
+            </span>
+          ))}
         </div>
+      </div>
 
-        {/* New Achievements */}
-        {newAchievements && newAchievements.length > 0 && (
-          <div className="bg-card rounded-lg border p-6 mb-6">
-            <h2 className="font-semibold mb-4">🏆 Achievements Unlocked!</h2>
-            <div className="space-y-3">
-              {newAchievements.map((ua) => {
-                const achievement = ua.achievements as unknown as {
-                  name: string;
-                  description: string;
-                };
-                return (
-                  <div
-                    key={ua.achievement_id}
-                    className="flex items-center gap-3 p-3 bg-primary/10 rounded-lg"
-                  >
-                    <span className="text-2xl">🎖️</span>
-                    <div>
-                      <div className="font-medium">{achievement?.name}</div>
-                      <div className="text-sm text-muted-foreground">
-                        {achievement?.description}
-                      </div>
+      {/* New Achievements */}
+      {newAchievements && newAchievements.length > 0 && (
+        <div className="rounded-2xl border border-primary/30 bg-primary/5 p-6 shadow-soft animate-slide-up" style={{ animationDelay: '200ms' }}>
+          <h2 className="font-semibold mb-4 text-primary">🏆 Achievements Unlocked!</h2>
+          <div className="space-y-3">
+            {newAchievements.map((ua) => {
+              const achievement = ua.achievements as unknown as {
+                name: string;
+                description: string;
+              };
+              return (
+                <div
+                  key={ua.achievement_id}
+                  className="flex items-center gap-3 p-4 bg-card rounded-xl border border-border/40"
+                >
+                  <span className="text-2xl">🎖️</span>
+                  <div>
+                    <div className="font-semibold">{achievement?.name}</div>
+                    <div className="text-sm text-muted-foreground">
+                      {achievement?.description}
                     </div>
                   </div>
-                );
-              })}
-            </div>
+                </div>
+              );
+            })}
           </div>
-        )}
-
-        {/* Actions */}
-        <div className="flex flex-col sm:flex-row gap-4">
-          <Link
-            href="/training"
-            className="flex-1 inline-flex items-center justify-center rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow hover:bg-primary/90"
-          >
-            Play Again
-          </Link>
-
-          <button
-            onClick={() => {
-              navigator.clipboard.writeText(shareText);
-              alert("Copied to clipboard!");
-            }}
-            className="flex-1 inline-flex items-center justify-center rounded-lg border border-input bg-background px-4 py-3 text-sm font-semibold shadow-sm hover:bg-accent"
-          >
-            Share Result
-          </button>
-
-          <Link
-            href="/dashboard"
-            className="flex-1 inline-flex items-center justify-center rounded-lg border border-input bg-background px-4 py-3 text-sm font-semibold shadow-sm hover:bg-accent"
-          >
-            Dashboard
-          </Link>
         </div>
+      )}
+
+      {/* Actions */}
+      <div className="flex flex-col sm:flex-row gap-3 animate-slide-up" style={{ animationDelay: '250ms' }}>
+        <Link
+          href="/training"
+          className="flex-1 inline-flex items-center justify-center rounded-xl bg-primary px-4 py-3.5 text-sm font-semibold text-primary-foreground shadow-[0_4px_12px_-2px_hsl(var(--primary)/0.4)] hover:shadow-[0_6px_16px_-2px_hsl(var(--primary)/0.5)] hover:translate-y-[-1px] transition-all duration-200"
+        >
+          Play Again
+        </Link>
+
+        <button
+          onClick={() => {
+            navigator.clipboard.writeText(shareText);
+            alert("Copied to clipboard!");
+          }}
+          className="flex-1 inline-flex items-center justify-center rounded-xl border border-border/60 bg-card px-4 py-3.5 text-sm font-semibold shadow-sm hover:bg-secondary hover:translate-y-[-1px] transition-all duration-200"
+        >
+          Share Result
+        </button>
+
+        <Link
+          href="/dashboard"
+          className="flex-1 inline-flex items-center justify-center rounded-xl border border-border/60 bg-card px-4 py-3.5 text-sm font-semibold shadow-sm hover:bg-secondary hover:translate-y-[-1px] transition-all duration-200"
+        >
+          Dashboard
+        </Link>
       </div>
     </div>
   );

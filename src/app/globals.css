@@ -4,48 +4,60 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 221.2 83.2% 53.3%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
-    --radius: 0.5rem;
+    /* Light mode - Warm paper with electric teal accents */
+    --background: 40 33% 98%;         /* Warm off-white, like aged paper */
+    --foreground: 220 25% 10%;        /* Deep ink */
+    --card: 40 25% 99%;
+    --card-foreground: 220 25% 10%;
+    --popover: 40 25% 99%;
+    --popover-foreground: 220 25% 10%;
+    --primary: 172 66% 40%;           /* Teal - speed, digital, unexpected */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 40 20% 95%;
+    --secondary-foreground: 220 25% 10%;
+    --muted: 40 15% 93%;
+    --muted-foreground: 220 10% 45%;
+    --accent: 172 66% 40%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 40 15% 88%;
+    --input: 40 15% 88%;
+    --ring: 172 66% 40%;
+    --radius: 0.75rem;
+    --chart-1: 172 66% 40%;
+    --chart-2: 38 92% 50%;
+    --chart-3: 0 72% 51%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 220 70% 50%;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 48%;
+    /* Dark mode - Deep ocean with electric cyan glow */
+    --background: 220 40% 5%;         /* Near black with blue undertone */
+    --foreground: 40 15% 95%;         /* Warm white */
+    --card: 220 35% 8%;               /* Elevated surface */
+    --card-foreground: 40 15% 95%;
+    --popover: 220 35% 8%;
+    --popover-foreground: 40 15% 95%;
+    --primary: 175 85% 50%;           /* Electric cyan - arcade energy */
+    --primary-foreground: 220 40% 5%;
+    --secondary: 220 30% 13%;
+    --secondary-foreground: 40 15% 95%;
+    --muted: 220 30% 13%;
+    --muted-foreground: 215 20% 55%;
+    --accent: 175 85% 50%;
+    --accent-foreground: 220 40% 5%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 40 15% 95%;
+    --border: 220 30% 15%;
+    --input: 220 30% 15%;
+    --ring: 175 85% 50%;
+    --chart-1: 175 85% 50%;
+    --chart-2: 38 92% 55%;
+    --chart-3: 0 72% 55%;
+    --chart-4: 280 70% 65%;
+    --chart-5: 340 80% 60%;
   }
 }
 
@@ -55,6 +67,50 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+}
+
+@layer components {
+  /* Premium card surfaces with atmospheric depth */
+  .surface-card {
+    @apply bg-card rounded-2xl border border-border/40 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.08),0_4px_16px_-4px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_-2px_rgba(0,0,0,0.3),0_4px_16px_-4px_rgba(0,0,0,0.2)];
+  }
+
+  /* Elevated surface with dramatic shadow */
+  .surface-elevated {
+    @apply bg-card rounded-2xl border border-border/30 shadow-[0_4px_16px_-4px_rgba(0,0,0,0.1),0_8px_32px_-8px_rgba(0,0,0,0.06)] dark:shadow-[0_8px_32px_-8px_rgba(0,0,0,0.5),0_16px_64px_-16px_rgba(0,0,0,0.3)];
+  }
+
+  /* Glass effect with atmospheric blur */
+  .surface-glass {
+    @apply bg-background/70 backdrop-blur-xl border border-border/30;
+  }
+
+  /* Premium button base with electric glow */
+  .btn-primary {
+    @apply inline-flex items-center justify-center rounded-xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-[0_4px_16px_-2px_hsl(var(--primary)/0.4),0_0_0_1px_hsl(var(--primary)/0.1)] hover:shadow-[0_8px_24px_-4px_hsl(var(--primary)/0.5),0_0_0_1px_hsl(var(--primary)/0.2)] hover:translate-y-[-1px] active:translate-y-[0px] transition-all duration-200;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center rounded-xl border border-border/60 bg-card px-6 py-3 text-sm font-semibold shadow-sm hover:bg-secondary hover:border-border hover:translate-y-[-1px] active:translate-y-[0px] transition-all duration-200;
+  }
+
+  /* Premium input with focus glow */
+  .input-field {
+    @apply w-full rounded-xl border border-border/50 bg-card/50 px-4 py-3.5 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 focus:shadow-[0_0_0_3px_hsl(var(--primary)/0.1)] transition-all duration-200;
+  }
+
+  /* Atmospheric background for sections */
+  .bg-atmosphere {
+    @apply bg-gradient-to-br from-background via-background to-secondary/20;
+  }
+
+  /* Speed lines effect for game aesthetic */
+  .speed-lines {
+    background-image:
+      linear-gradient(90deg, transparent 0%, hsl(var(--primary) / 0.03) 50%, transparent 100%),
+      repeating-linear-gradient(90deg, hsl(var(--primary) / 0.02) 0px, transparent 2px, transparent 4px, hsl(var(--primary) / 0.02) 6px);
   }
 }
 

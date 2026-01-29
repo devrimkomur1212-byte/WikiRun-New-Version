@@ -12,6 +12,7 @@ import {
   joinMatchmakingQueue,
   leaveMatchmakingQueue,
 } from "@/app/actions/joinMatchmakingQueue";
+import { logger } from "@/lib/logger";
 
 type MatchmakingState =
   | { status: "idle" }
@@ -46,6 +47,7 @@ export function MatchmakingQueue({
   const router = useRouter();
   const [state, setState] = useState<MatchmakingState>({ status: "idle" });
   const [queueTime, setQueueTime] = useState(0);
+  const [connectionState, setConnectionState] = useState<'idle' | 'connecting' | 'ready'>('idle');
 
   // Handle match found from realtime subscription
   const handleMatchFound = useCallback((match: MatchFoundEvent) => {
@@ -63,19 +65,33 @@ export function MatchmakingQueue({
   }, []);
 
   // Subscribe to realtime match notifications
-  useMatchmakingRealtime({
+  const { isSubscribed, connectionStatus } = useMatchmakingRealtime({
     userId,
-    enabled: state.status === "searching",
+    enabled: connectionState !== 'idle',
     onMatchFound: handleMatchFound,
   });
 
-  // Start searching when component mounts
+  // Step 1: Start connection on mount
   useEffect(() => {
+    if (connectionState !== 'idle') return;
+    logger.info('matchmaking', 'Initializing matchmaking');
+    setConnectionState('connecting');
+  }, [connectionState]);
+
+  // Step 2: Wait for connection, THEN join queue
+  useEffect(() => {
+    if (connectionState !== 'connecting') return;
+    if (connectionStatus !== 'connected') return;
+
+    logger.info('matchmaking', 'Realtime connected, joining queue');
+    setConnectionState('ready');
+
     const startSearching = async () => {
       setState({ status: "searching", elo: userElo });
 
       try {
         const result = await joinMatchmakingQueue();
+        logger.info('matchmaking', 'Queue join result', result);
 
         if (result.status === "matched") {
           // Immediately matched
@@ -90,13 +106,13 @@ export function MatchmakingQueue({
         }
         // If "queued", realtime subscription will notify us
       } catch (error) {
-        console.error("Failed to join queue:", error);
+        logger.error('matchmaking', 'Failed to join queue', error);
         onCancel();
       }
     };
 
     startSearching();
-  }, [userElo, onCancel]);
+  }, [connectionState, connectionStatus, userElo, onCancel]);
 
   // Queue time counter
   useEffect(() => {
@@ -184,6 +200,36 @@ export function MatchmakingQueue({
   };
 
   // Render based on state
+  // Show connecting state
+  if (connectionState === 'connecting' || connectionState === 'idle') {
+    return (
+      <div className="rounded-2xl border border-border/40 bg-card p-10 text-center shadow-soft">
+        <div className="w-12 h-12 border-3 border-primary/30 border-t-primary rounded-full animate-spin mx-auto mb-4" />
+        <div className="text-muted-foreground">
+          Connecting to matchmaking...
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (connectionStatus === 'error') {
+    return (
+      <div className="rounded-2xl border border-destructive/30 bg-card p-10 text-center shadow-soft">
+        <h2 className="text-h2 text-destructive mb-4">Connection Error</h2>
+        <p className="text-muted-foreground mb-6">
+          Failed to connect to matchmaking server
+        </p>
+        <button
+          onClick={onCancel}
+          className="px-6 py-3 rounded-xl bg-primary text-primary-foreground font-semibold shadow-[0_4px_12px_-2px_hsl(var(--primary)/0.4)] hover:shadow-[0_6px_16px_-2px_hsl(var(--primary)/0.5)] hover:translate-y-[-1px] transition-all duration-200"
+        >
+          Return to Lobby
+        </button>
+      </div>
+    );
+  }
+
   if (state.status === "searching") {
     return (
       <QueueTimer seconds={queueTime} elo={state.elo} onCancel={handleCancel} />

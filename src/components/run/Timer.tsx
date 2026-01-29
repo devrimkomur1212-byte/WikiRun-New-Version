@@ -36,7 +36,7 @@ export function Timer() {
   };
 
   return (
-    <div className="font-mono text-4xl font-bold tabular-nums">
+    <div className="font-mono text-4xl sm:text-5xl font-bold tabular-nums tracking-tight text-foreground">
       {formatTime(displayTime)}
     </div>
   );

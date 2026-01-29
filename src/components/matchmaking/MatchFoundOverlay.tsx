@@ -12,36 +12,39 @@ export function MatchFoundOverlay({
   secondsLeft,
 }: MatchFoundOverlayProps) {
   return (
-    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
-      <div className="bg-card rounded-lg border p-8 max-w-lg mx-4 text-center animate-in fade-in zoom-in duration-300">
-        <h2 className="text-3xl font-bold mb-4 text-primary">
+    <div className="fixed inset-0 bg-background/90 backdrop-blur-xl flex items-center justify-center z-50">
+      <div className="bg-card rounded-3xl border border-border/40 p-10 max-w-lg mx-4 text-center shadow-soft-lg animate-scale-in">
+        <h2 className="text-display-sm mb-6 text-primary">
           Match Found!
         </h2>
 
-        <div className="mb-6">
+        <div className="mb-8">
           <span className="text-muted-foreground">Opponent ELO: </span>
-          <span className="font-bold text-lg">{opponentElo}</span>
+          <span className="font-bold text-xl">{opponentElo}</span>
         </div>
 
-        <div className="bg-muted rounded-lg p-4 mb-6">
-          <div className="text-sm text-muted-foreground mb-2">Your Route</div>
-          <div className="flex items-center justify-center gap-3 text-lg">
-            <span className="font-semibold">{route.startTitle}</span>
-            <span className="text-muted-foreground">→</span>
-            <span className="font-semibold text-primary">{route.targetTitle}</span>
+        <div className="bg-secondary/50 rounded-2xl p-5 mb-8">
+          <div className="text-sm text-muted-foreground mb-3">Your Route</div>
+          <div className="flex items-center justify-center gap-4 text-lg">
+            <span className="px-3 py-1.5 rounded-lg bg-card font-semibold">{route.startTitle}</span>
+            <span className="text-muted-foreground/50">→</span>
+            <span className="px-3 py-1.5 rounded-lg bg-primary/10 text-primary font-semibold">{route.targetTitle}</span>
           </div>
         </div>
 
-        <div className="mb-4">
-          <div className="text-8xl font-bold font-mono text-primary animate-pulse">
+        <div className="mb-6">
+          <div
+            className="text-8xl sm:text-9xl font-bold font-mono text-primary animate-pulse tabular-nums"
+            style={{ textShadow: '0 0 40px hsl(var(--primary) / 0.5)' }}
+          >
             {secondsLeft}
           </div>
         </div>
 
-        <p className="text-muted-foreground">
+        <p className="text-lg text-muted-foreground">
           {secondsLeft > 0
             ? `Game starting in ${secondsLeft} second${secondsLeft !== 1 ? "s" : ""}...`
-            : "GO!"}
+            : <span className="text-primary font-bold text-2xl">GO!</span>}
         </p>
       </div>
     </div>
