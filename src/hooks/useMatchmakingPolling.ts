@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useCallback } from "react";
 import { checkQueueStatus } from "@/app/actions/queueRanked";
+import { joinMatchmakingQueue } from "@/app/actions/joinMatchmakingQueue";
 import { logger } from "@/lib/logger";
 import type { MatchFoundEvent } from "./useMatchmakingRealtime";
 
@@ -25,22 +26,48 @@ export function useMatchmakingPolling({
 
     try {
       logger.debug('polling', 'Polling for match...');
-      const result = await checkQueueStatus();
 
-      if (result.matched && result.matchId && result.runId) {
-        logger.info('polling', 'Match found via polling!', {
-          matchId: result.matchId,
-          runId: result.runId,
+      // First, check if we were already matched by someone else
+      const statusResult = await checkQueueStatus();
+
+      if (statusResult.matched && statusResult.matchId && statusResult.runId) {
+        logger.info('polling', 'Match found via status check!', {
+          matchId: statusResult.matchId,
+          runId: statusResult.runId,
         });
 
         onMatchFound({
-          matchId: result.matchId,
-          runId: result.runId,
-          startTime: result.startTime || new Date().toISOString(),
-          startTitle: result.startTitle!,
-          targetTitle: result.targetTitle!,
-          opponentElo: result.opponentElo || 1000,
+          matchId: statusResult.matchId,
+          runId: statusResult.runId,
+          startTime: statusResult.startTime || new Date().toISOString(),
+          startTitle: statusResult.startTitle!,
+          targetTitle: statusResult.targetTitle!,
+          opponentElo: statusResult.opponentElo || 1000,
         });
+        return;
+      }
+
+      // If still in queue (or no pending match), actively try to match
+      if (statusResult.inQueue || !statusResult.matched) {
+        logger.debug('polling', 'Actively trying to match...');
+        const matchResult = await joinMatchmakingQueue();
+
+        if (matchResult.status === "matched") {
+          logger.info('polling', 'Match created via active polling!', {
+            matchId: matchResult.matchId,
+            runId: matchResult.runId,
+          });
+
+          onMatchFound({
+            matchId: matchResult.matchId,
+            runId: matchResult.runId,
+            startTime: matchResult.startTime,
+            startTitle: matchResult.route.startTitle,
+            targetTitle: matchResult.route.targetTitle,
+            opponentElo: matchResult.opponent.elo,
+          });
+        }
+        // If "queued", we stay in queue waiting for next poll
       }
     } catch (error) {
       logger.error('polling', 'Polling error', error);
