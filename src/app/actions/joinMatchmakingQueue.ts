@@ -45,27 +45,26 @@ export async function joinMatchmakingQueue() {
 
   logger.info('matchmaking', `User ${user.id} joining queue`, { elo: userElo });
 
-  // Remove user from queue if already there
-  await supabase.from("queue_ranked").delete().eq("user_id", user.id);
-
   // Try to find a match based on ELO range
   const match = await findMatchInQueue(serviceSupabase, user.id, userElo);
 
   if (match) {
+    // Remove self from queue first (in case we were already in it)
+    await serviceSupabase.from("queue_ranked").delete().eq("user_id", user.id);
     logger.info('matchmaking', 'Match found, creating match', { opponentId: match.user_id, opponentElo: match.elo_rating });
     return await createMatch(serviceSupabase, supabase, user.id, userElo, match);
   }
 
   logger.debug('matchmaking', 'No match found, adding to queue');
-  // No match found - add to queue with ELO
+  // No match found - upsert into queue (handles race conditions from polling)
   type QueueInsert = Database["public"]["Tables"]["queue_ranked"]["Insert"];
   const queueData: QueueInsert = {
     user_id: user.id,
     elo_rating: userElo,
   };
-  const { error: queueError } = await supabase
+  const { error: queueError } = await serviceSupabase
     .from("queue_ranked")
-    .insert(queueData as never);
+    .upsert(queueData as never, { onConflict: "user_id" });
 
   if (queueError) {
     throw new Error("Failed to join queue: " + queueError.message);
@@ -76,7 +75,7 @@ export async function joinMatchmakingQueue() {
   if (matchAfterInsert) {
     logger.info('matchmaking', 'Match found on re-check after insert');
     // Remove self from queue before creating match (we just inserted ourselves above)
-    await supabase.from("queue_ranked").delete().eq("user_id", user.id);
+    await serviceSupabase.from("queue_ranked").delete().eq("user_id", user.id);
     return await createMatch(serviceSupabase, supabase, user.id, userElo, matchAfterInsert);
   }
 
