@@ -153,30 +153,6 @@ export default function PlayPage() {
         </div>
       )}
 
-      {/* How It Works */}
-      <div className="grid md:grid-cols-4 gap-5">
-        {[
-          { num: 1, title: 'Find Match', desc: "Press play to join the queue. You'll be matched with an opponent of similar ELO." },
-          { num: 2, title: 'Same Route', desc: 'Both players race the same Wikipedia route. Countdown syncs your start!' },
-          { num: 3, title: 'Race to Win', desc: 'Navigate from start to target as fast as possible. Fastest time wins!' },
-          { num: 4, title: 'Gain ELO', desc: 'Winner gains ELO, loser loses ELO. Climb to the top 50 Elder ranks!' },
-        ].map((step, index) => (
-          <div
-            key={step.num}
-            className="rounded-2xl border border-border/40 bg-card p-6 shadow-soft hover:shadow-soft-lg hover:translate-y-[-2px] transition-all duration-300 animate-slide-up"
-            style={{ animationDelay: `${200 + index * 50}ms` }}
-          >
-            <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center text-lg font-bold mb-4">
-              {step.num}
-            </div>
-            <h3 className="font-semibold mb-2">{step.title}</h3>
-            <p className="text-sm text-muted-foreground leading-relaxed">
-              {step.desc}
-            </p>
-          </div>
-        ))}
-      </div>
-
       {/* Auth Prompt Modal */}
       {showAuthPrompt && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
@@ -215,17 +191,13 @@ export default function PlayPage() {
           <h2 className="text-h2 mb-6">About Ranked Mode</h2>
           <div className="rounded-2xl border border-border/40 bg-card p-6 space-y-4 shadow-soft">
             <p className="text-muted-foreground leading-relaxed">
-              In Ranked mode, you&apos;ll be matched with an opponent of similar ELO
-              (within ±200). Both players race the exact same Wikipedia route simultaneously.
+              Two players. One route. No search bar, no back button &mdash; just you,
+              Wikipedia, and whatever links are in front of you. Same start. Same target.
+              Race begins on 3.
             </p>
             <p className="text-muted-foreground leading-relaxed">
-              Your goal is to navigate from the start article to the target article by
-              clicking only on Wikipedia links within articles. No searching, no back button -
-              just pure navigation skill and Wikipedia knowledge!
-            </p>
-            <p className="text-muted-foreground leading-relaxed">
-              The player who reaches the target article first wins. Winner gains ELO points,
-              loser loses ELO points. Can you reach the Elder ranks in the top 50?
+              Get there first, gain ELO. Get there second, lose it. Simple as that.
+              Reach the top 50 and you earn Elder &mdash; the only rank that actually means something.
             </p>
           </div>
         </div>
@@ -243,7 +215,7 @@ export default function PlayPage() {
                 >
                   <span className={`font-medium ${rank.color}`}>{rank.name}</span>
                   <span className="text-sm text-muted-foreground font-mono">
-                    {rank.minElo}+
+                    {rank.maxElo ? `${rank.minElo} – ${rank.maxElo}` : `${rank.minElo}+`}
                   </span>
                 </div>
               ))}

@@ -1,9 +1,12 @@
 "use client";
 
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useRunStore } from "@/lib/run/runStore";
 import { Timer } from "./Timer";
 
 export function RunHUD() {
+  const router = useRouter();
   const startTitle = useRunStore((state) => state.startTitle);
   const targetTitle = useRunStore((state) => state.targetTitle);
   const currentTitle = useRunStore((state) => state.currentTitle);
@@ -11,6 +14,28 @@ export function RunHUD() {
   const routeTitles = useRunStore((state) => state.routeTitles);
   const isLoading = useRunStore((state) => state.isLoading);
   const isTargetReached = useRunStore((state) => state.isTargetReached);
+  const mode = useRunStore((state) => state.mode);
+  const runId = useRunStore((state) => state.runId);
+  const completeRun = useRunStore((state) => state.completeRun);
+
+  const [confirmingGiveUp, setConfirmingGiveUp] = useState(false);
+
+  const handleGiveUp = () => {
+    const runData = completeRun();
+    localStorage.setItem(
+      `run-results-${runId}`,
+      JSON.stringify({
+        runId,
+        activeTimeMs: runData.activeTimeMs,
+        clicksCount: runData.clicksCount,
+        missesCount: runData.missesCount,
+        routeTitles: runData.routeTitles,
+        completedAt: Date.now(),
+        gaveUp: true,
+      })
+    );
+    router.push(`/results/training/${runId}`);
+  };
 
   return (
     <div className="fixed top-0 left-0 right-0 z-50 bg-background/70 backdrop-blur-xl border-b border-border/40">
@@ -44,6 +69,36 @@ export function RunHUD() {
               <span className="text-3xl font-bold tabular-nums tracking-tight">{clicksCount}</span>
               <span className="text-xs text-muted-foreground">Clicks</span>
             </div>
+
+            {/* Give Up — training only */}
+            {mode === "training" && !isTargetReached && (
+              <div className="flex items-center gap-2">
+                {confirmingGiveUp ? (
+                  <>
+                    <span className="text-xs text-muted-foreground">Sure?</span>
+                    <button
+                      onClick={handleGiveUp}
+                      className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-destructive text-destructive-foreground hover:opacity-90 transition-opacity"
+                    >
+                      Yes
+                    </button>
+                    <button
+                      onClick={() => setConfirmingGiveUp(false)}
+                      className="px-3 py-1.5 rounded-lg text-xs font-medium border border-border/60 bg-card hover:bg-secondary transition-colors"
+                    >
+                      No
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => setConfirmingGiveUp(true)}
+                    className="px-3 py-1.5 rounded-lg text-xs font-medium border border-border/60 bg-card text-muted-foreground hover:text-destructive hover:border-destructive/40 transition-colors"
+                  >
+                    Give Up
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </div>
 

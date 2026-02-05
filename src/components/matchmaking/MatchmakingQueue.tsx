@@ -8,6 +8,7 @@ import {
   useMatchmakingRealtime,
   type MatchFoundEvent,
 } from "@/hooks/useMatchmakingRealtime";
+import { useMatchmakingPolling } from "@/hooks/useMatchmakingPolling";
 import {
   joinMatchmakingQueue,
   leaveMatchmakingQueue,
@@ -48,8 +49,9 @@ export function MatchmakingQueue({
   const [state, setState] = useState<MatchmakingState>({ status: "idle" });
   const [queueTime, setQueueTime] = useState(0);
   const [connectionState, setConnectionState] = useState<'idle' | 'connecting' | 'ready'>('idle');
+  const [usePollingFallback, setUsePollingFallback] = useState(false);
 
-  // Handle match found from realtime subscription
+  // Handle match found from realtime subscription or polling
   const handleMatchFound = useCallback((match: MatchFoundEvent) => {
     setState({
       status: "matched",
@@ -65,9 +67,15 @@ export function MatchmakingQueue({
   }, []);
 
   // Subscribe to realtime match notifications
-  const { isSubscribed, connectionStatus } = useMatchmakingRealtime({
+  const { isSubscribed, connectionStatus, retryCount, connectionError } = useMatchmakingRealtime({
     userId,
     enabled: connectionState !== 'idle',
+    onMatchFound: handleMatchFound,
+  });
+
+  // Polling fallback when realtime fails
+  useMatchmakingPolling({
+    enabled: usePollingFallback && state.status === 'searching',
     onMatchFound: handleMatchFound,
   });
 
@@ -78,15 +86,12 @@ export function MatchmakingQueue({
     setConnectionState('connecting');
   }, [connectionState]);
 
-  // Step 2: Wait for connection, THEN join queue
+  // Step 2: Wait for connection, THEN join queue (or fallback to polling)
   useEffect(() => {
     if (connectionState !== 'connecting') return;
-    if (connectionStatus !== 'connected') return;
-
-    logger.info('matchmaking', 'Realtime connected, joining queue');
-    setConnectionState('ready');
 
     const startSearching = async () => {
+      setConnectionState('ready');
       setState({ status: "searching", elo: userElo });
 
       try {
@@ -104,19 +109,36 @@ export function MatchmakingQueue({
             opponentElo: result.opponent.elo,
           });
         }
-        // If "queued", realtime subscription will notify us
+        // If "queued", realtime subscription or polling will notify us
       } catch (error) {
         logger.error('matchmaking', 'Failed to join queue', error);
         onCancel();
       }
     };
 
-    startSearching();
-  }, [connectionState, connectionStatus, userElo, onCancel]);
+    // If realtime connected, proceed normally
+    if (connectionStatus === 'connected') {
+      logger.info('matchmaking', 'Realtime connected, joining queue');
+      startSearching();
+      return;
+    }
 
-  // Queue time counter
+    // If realtime failed after retries, switch to polling mode
+    if (connectionStatus === 'error') {
+      logger.warn('matchmaking', 'Realtime failed, switching to polling fallback', {
+        error: connectionError,
+      });
+      setUsePollingFallback(true);
+      startSearching();
+      return;
+    }
+
+    // Still connecting - wait for timeout or success
+  }, [connectionState, connectionStatus, connectionError, userElo, onCancel]);
+
+  // Queue time counter — ticks from mount, stops only once matched/countdown
   useEffect(() => {
-    if (state.status !== "searching") return;
+    if (state.status === "matched" || state.status === "countdown") return;
 
     const interval = setInterval(() => {
       setQueueTime((t) => t + 1);
@@ -200,42 +222,6 @@ export function MatchmakingQueue({
   };
 
   // Render based on state
-  // Show connecting state
-  if (connectionState === 'connecting' || connectionState === 'idle') {
-    return (
-      <div className="rounded-2xl border border-border/40 bg-card p-10 text-center shadow-soft">
-        <div className="w-12 h-12 border-3 border-primary/30 border-t-primary rounded-full animate-spin mx-auto mb-4" />
-        <div className="text-muted-foreground">
-          Connecting to matchmaking...
-        </div>
-      </div>
-    );
-  }
-
-  // Show error state
-  if (connectionStatus === 'error') {
-    return (
-      <div className="rounded-2xl border border-destructive/30 bg-card p-10 text-center shadow-soft">
-        <h2 className="text-h2 text-destructive mb-4">Connection Error</h2>
-        <p className="text-muted-foreground mb-6">
-          Failed to connect to matchmaking server
-        </p>
-        <button
-          onClick={onCancel}
-          className="px-6 py-3 rounded-xl bg-primary text-primary-foreground font-semibold shadow-[0_4px_12px_-2px_hsl(var(--primary)/0.4)] hover:shadow-[0_6px_16px_-2px_hsl(var(--primary)/0.5)] hover:translate-y-[-1px] transition-all duration-200"
-        >
-          Return to Lobby
-        </button>
-      </div>
-    );
-  }
-
-  if (state.status === "searching") {
-    return (
-      <QueueTimer seconds={queueTime} elo={state.elo} onCancel={handleCancel} />
-    );
-  }
-
   if (state.status === "matched" || state.status === "countdown") {
     return (
       <MatchFoundOverlay
@@ -246,5 +232,13 @@ export function MatchmakingQueue({
     );
   }
 
-  return null;
+  // Default: show queue timer for idle / connecting / searching phases
+  return (
+    <QueueTimer
+      seconds={queueTime}
+      elo={userElo}
+      onCancel={handleCancel}
+      isPollingMode={usePollingFallback}
+    />
+  );
 }

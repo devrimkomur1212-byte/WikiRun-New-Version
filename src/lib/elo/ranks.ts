@@ -12,26 +12,27 @@ export interface RankInfo {
   color: string;
   bgColor: string;
   minElo: number;
+  maxElo?: number;
 }
 
 export const RANK_THRESHOLDS: RankInfo[] = [
-  { name: "Elder", color: "text-purple-500", bgColor: "bg-purple-500/10", minElo: 0 }, // Special - top 50
-  { name: "Emerald", color: "text-emerald-500", bgColor: "bg-emerald-500/10", minElo: 1500 },
-  { name: "Diamond", color: "text-cyan-400", bgColor: "bg-cyan-400/10", minElo: 1350 },
-  { name: "Platinum", color: "text-slate-300", bgColor: "bg-slate-300/10", minElo: 1200 },
-  { name: "Gold", color: "text-yellow-500", bgColor: "bg-yellow-500/10", minElo: 1050 },
-  { name: "Silver", color: "text-gray-400", bgColor: "bg-gray-400/10", minElo: 900 },
-  { name: "Bronze", color: "text-orange-600", bgColor: "bg-orange-600/10", minElo: 0 },
+  { name: "Elder",    color: "text-purple-500",  bgColor: "bg-purple-500/10",             minElo: 0 },    // Special - top 50
+  { name: "Emerald",  color: "text-emerald-500", bgColor: "bg-emerald-500/10",            minElo: 1700 },
+  { name: "Diamond",  color: "text-[#7DD3FC]",   bgColor: "bg-[rgba(125,211,252,0.1)]",   minElo: 1400, maxElo: 1700 },
+  { name: "Platinum", color: "text-[#D4D4D8]",   bgColor: "bg-[rgba(212,212,216,0.1)]",   minElo: 1100, maxElo: 1400 },
+  { name: "Gold",     color: "text-[#FFD700]",   bgColor: "bg-[rgba(255,215,0,0.1)]",     minElo: 800,  maxElo: 1100 },
+  { name: "Silver",   color: "text-[#C0C0C0]",   bgColor: "bg-[rgba(192,192,192,0.1)]",   minElo: 500,  maxElo: 800  },
+  { name: "Bronze",   color: "text-[#CD7F32]",   bgColor: "bg-[rgba(205,127,50,0.1)]",    minElo: 0,    maxElo: 500  },
 ];
 
 // Ranks in display order (Bronze to Emerald) - excludes Elder which is special
 export const RANKS: RankInfo[] = [
-  { name: "Bronze", color: "text-orange-600", bgColor: "bg-orange-600/10", minElo: 0 },
-  { name: "Silver", color: "text-gray-400", bgColor: "bg-gray-400/10", minElo: 900 },
-  { name: "Gold", color: "text-yellow-500", bgColor: "bg-yellow-500/10", minElo: 1050 },
-  { name: "Platinum", color: "text-slate-300", bgColor: "bg-slate-300/10", minElo: 1200 },
-  { name: "Diamond", color: "text-cyan-400", bgColor: "bg-cyan-400/10", minElo: 1350 },
-  { name: "Emerald", color: "text-emerald-500", bgColor: "bg-emerald-500/10", minElo: 1500 },
+  { name: "Bronze",   color: "text-[#CD7F32]",   bgColor: "bg-[rgba(205,127,50,0.1)]",    minElo: 0,    maxElo: 500  },
+  { name: "Silver",   color: "text-[#C0C0C0]",   bgColor: "bg-[rgba(192,192,192,0.1)]",   minElo: 500,  maxElo: 800  },
+  { name: "Gold",     color: "text-[#FFD700]",   bgColor: "bg-[rgba(255,215,0,0.1)]",     minElo: 800,  maxElo: 1100 },
+  { name: "Platinum", color: "text-[#D4D4D8]",   bgColor: "bg-[rgba(212,212,216,0.1)]",   minElo: 1100, maxElo: 1400 },
+  { name: "Diamond",  color: "text-[#7DD3FC]",   bgColor: "bg-[rgba(125,211,252,0.1)]",   minElo: 1400, maxElo: 1700 },
+  { name: "Emerald",  color: "text-emerald-500", bgColor: "bg-emerald-500/10",            minElo: 1700 },
 ];
 
 /**
@@ -45,11 +46,11 @@ export function getRank(elo: number, leaderboardPosition?: number): RankInfo {
   }
 
   // Find rank by ELO
-  if (elo >= 1500) return RANK_THRESHOLDS[1]; // Emerald
-  if (elo >= 1350) return RANK_THRESHOLDS[2]; // Diamond
-  if (elo >= 1200) return RANK_THRESHOLDS[3]; // Platinum
-  if (elo >= 1050) return RANK_THRESHOLDS[4]; // Gold
-  if (elo >= 900) return RANK_THRESHOLDS[5]; // Silver
+  if (elo >= 1700) return RANK_THRESHOLDS[1]; // Emerald
+  if (elo >= 1400) return RANK_THRESHOLDS[2]; // Diamond
+  if (elo >= 1100) return RANK_THRESHOLDS[3]; // Platinum
+  if (elo >= 800)  return RANK_THRESHOLDS[4]; // Gold
+  if (elo >= 500)  return RANK_THRESHOLDS[5]; // Silver
   return RANK_THRESHOLDS[6]; // Bronze
 }
 

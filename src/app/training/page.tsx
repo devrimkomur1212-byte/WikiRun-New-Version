@@ -15,21 +15,21 @@ export default function TrainingPage() {
       color: "text-green-500",
       bg: "bg-green-500/10",
       border: "border-green-500/20",
-      description: "Random Wikipedia articles - perfect for beginners",
+      description: "Well-known articles on both ends. Short routes, familiar territory.",
     },
     medium: {
       label: "Medium",
       color: "text-yellow-500",
       bg: "bg-yellow-500/10",
       border: "border-yellow-500/20",
-      description: "Random Wikipedia articles - moderate challenge",
+      description: "Popular articles, trickier combinations. Test your knowledge.",
     },
     hard: {
       label: "Hard",
       color: "text-red-500",
       bg: "bg-red-500/10",
       border: "border-red-500/20",
-      description: "Random Wikipedia articles - for experienced navigators",
+      description: "Start somewhere familiar. End up… somewhere random.",
     },
   };
 

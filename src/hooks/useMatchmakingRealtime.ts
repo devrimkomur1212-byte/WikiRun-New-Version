@@ -5,6 +5,10 @@ import { createClient } from "@/lib/supabase/client";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { logger } from "@/lib/logger";
 
+// Connection timeout and retry configuration
+const CONNECTION_TIMEOUT_MS = 10000; // 10 seconds
+const MAX_RETRY_ATTEMPTS = 2;
+
 export interface MatchFoundEvent {
   matchId: string;
   runId: string;
@@ -27,7 +31,10 @@ export function useMatchmakingRealtime({
 }: UseMatchmakingRealtimeOptions) {
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'error'>('connecting');
+  const [retryCount, setRetryCount] = useState(0);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const supabase = createClient();
 
   const handleMatchFound = useCallback(
@@ -117,6 +124,28 @@ export function useMatchmakingRealtime({
     [userId, supabase, onMatchFound]
   );
 
+  // Connection timeout effect
+  useEffect(() => {
+    if (!enabled || !userId) return;
+    if (connectionStatus === 'connected' || connectionStatus === 'error') return;
+
+    // Start timeout when connecting
+    timeoutRef.current = setTimeout(() => {
+      if (connectionStatus === 'connecting') {
+        logger.warn('realtime', `Connection timeout after ${CONNECTION_TIMEOUT_MS}ms`);
+        setConnectionError('Connection timed out');
+        setConnectionStatus('error');
+      }
+    }, CONNECTION_TIMEOUT_MS);
+
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+    };
+  }, [enabled, userId, connectionStatus, retryCount]);
+
   useEffect(() => {
     if (!userId || !enabled) {
       // Clean up if disabled
@@ -130,11 +159,11 @@ export function useMatchmakingRealtime({
       return;
     }
 
-    logger.debug('realtime', 'Setting up subscription', { userId });
+    logger.debug('realtime', 'Setting up subscription', { userId, attempt: retryCount + 1 });
 
     // Subscribe to matches where this user is a participant
     const channel = supabase
-      .channel(`matchmaking:${userId}`)
+      .channel(`matchmaking:${userId}:${retryCount}`)
       .on(
         "postgres_changes",
         {
@@ -159,14 +188,36 @@ export function useMatchmakingRealtime({
           await handleMatchFound(match.id);
         }
       )
-      .subscribe((status) => {
-        logger.debug('realtime', `Subscription status: ${status}`);
-        setIsSubscribed(status === "SUBSCRIBED");
-        setConnectionStatus(
-          status === "SUBSCRIBED" ? "connected" :
-          status === "CHANNEL_ERROR" ? "error" :
-          "connecting"
-        );
+      .subscribe((status, err) => {
+        logger.debug('realtime', `Subscription status: ${status}`, err ? { error: err } : {});
+
+        // Clear timeout on any status change
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+          timeoutRef.current = null;
+        }
+
+        if (status === "SUBSCRIBED") {
+          setIsSubscribed(true);
+          setConnectionStatus('connected');
+          setRetryCount(0);
+          setConnectionError(null);
+        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          logger.warn('realtime', `Subscription failed: ${status}`, err);
+
+          if (retryCount < MAX_RETRY_ATTEMPTS) {
+            logger.info('realtime', `Retrying connection (attempt ${retryCount + 2}/${MAX_RETRY_ATTEMPTS + 1})`);
+            // Clean up current channel before retry
+            if (channelRef.current) {
+              supabase.removeChannel(channelRef.current);
+              channelRef.current = null;
+            }
+            setRetryCount(prev => prev + 1);
+          } else {
+            setConnectionError(`Failed after ${MAX_RETRY_ATTEMPTS + 1} attempts`);
+            setConnectionStatus('error');
+          }
+        }
       });
 
     channelRef.current = channel;
@@ -178,7 +229,7 @@ export function useMatchmakingRealtime({
         channelRef.current = null;
       }
     };
-  }, [userId, enabled, supabase, handleMatchFound]);
+  }, [userId, enabled, supabase, handleMatchFound, retryCount]);
 
-  return { isSubscribed, connectionStatus };
+  return { isSubscribed, connectionStatus, retryCount, connectionError };
 }

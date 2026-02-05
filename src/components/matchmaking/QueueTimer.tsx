@@ -4,9 +4,10 @@ interface QueueTimerProps {
   seconds: number;
   elo: number;
   onCancel: () => void;
+  isPollingMode?: boolean;
 }
 
-export function QueueTimer({ seconds, elo, onCancel }: QueueTimerProps) {
+export function QueueTimer({ seconds, elo, onCancel, isPollingMode }: QueueTimerProps) {
   const formatTime = (s: number) => {
     const mins = Math.floor(s / 60);
     const secs = s % 60;
@@ -49,6 +50,12 @@ export function QueueTimer({ seconds, elo, onCancel }: QueueTimerProps) {
           {eloRange < 200 ? "Search range expands over time (max: ±200)" : "Maximum search range reached"}
         </div>
       </div>
+
+      {isPollingMode && (
+        <div className="text-xs text-muted-foreground/70 mb-4">
+          Using backup connection mode
+        </div>
+      )}
 
       <button
         onClick={onCancel}

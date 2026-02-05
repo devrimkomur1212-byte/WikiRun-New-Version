@@ -39,8 +39,8 @@ export function RunPageClient({
 
       if (isClientSideRun) {
         const runDataString = localStorage.getItem(`run-${runId}`);
+
         if (!runDataString) {
-          console.error("Run data not found in localStorage");
           router.push("/training");
           return;
         }
@@ -56,8 +56,7 @@ export function RunPageClient({
             matchId: null,
             initialTitle,
           });
-        } catch (error) {
-          console.error("Failed to parse run data:", error);
+        } catch {
           router.push("/training");
         }
       } else {
@@ -73,7 +72,10 @@ export function RunPageClient({
       }
     }
 
-    return () => reset();
+    return () => {
+      hasInitialized.current = false;
+      reset();
+    };
   }, [runId, mode, startTitle, targetTitle, routeId, matchId, initialTitle, initializeRun, reset, isClientSideRun, router]);
 
   return (

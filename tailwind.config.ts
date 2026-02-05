@@ -2,6 +2,23 @@ import type { Config } from "tailwindcss";
 
 const config: Config = {
   darkMode: ["class"],
+  safelist: [
+    // Rank tier colors (arbitrary values that Tailwind JIT can't detect from ranks.ts)
+    "text-[#CD7F32]",   // Bronze
+    "text-[#C0C0C0]",   // Silver
+    "text-[#FFD700]",   // Gold
+    "text-[#D4D4D8]",   // Platinum
+    "text-[#7DD3FC]",   // Diamond
+    "text-emerald-500", // Emerald
+    "text-purple-500",  // Elder
+    "bg-[rgba(205,127,50,0.1)]",   // Bronze bg
+    "bg-[rgba(192,192,192,0.1)]",  // Silver bg
+    "bg-[rgba(255,215,0,0.1)]",    // Gold bg
+    "bg-[rgba(212,212,216,0.1)]",  // Platinum bg
+    "bg-[rgba(125,211,252,0.1)]",  // Diamond bg
+    "bg-emerald-500/10", // Emerald bg
+    "bg-purple-500/10",  // Elder bg
+  ],
   content: [
     "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",

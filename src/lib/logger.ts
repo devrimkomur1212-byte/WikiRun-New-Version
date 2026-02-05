@@ -1,4 +1,4 @@
-type LogCategory = 'matchmaking' | 'realtime' | 'queue';
+type LogCategory = 'matchmaking' | 'realtime' | 'queue' | 'polling';
 
 export const logger = {
   debug: (category: LogCategory, message: string, data?: unknown) => {
@@ -6,10 +6,13 @@ export const logger = {
       console.log(`[${category.toUpperCase()}] ${message}`, data || '');
     }
   },
-  error: (category: LogCategory, message: string, error?: unknown) => {
-    console.error(`[${category.toUpperCase()} ERROR] ${message}`, error || '');
-  },
   info: (category: LogCategory, message: string, data?: unknown) => {
     console.info(`[${category.toUpperCase()}] ${message}`, data || '');
+  },
+  warn: (category: LogCategory, message: string, data?: unknown) => {
+    console.warn(`[${category.toUpperCase()} WARN] ${message}`, data || '');
+  },
+  error: (category: LogCategory, message: string, error?: unknown) => {
+    console.error(`[${category.toUpperCase()} ERROR] ${message}`, error || '');
   },
 };

@@ -17,6 +17,14 @@ interface RunResults {
   missesCount: number;
   routeTitles: string[];
   completedAt: number;
+  gaveUp?: boolean;
+}
+
+interface ShortestPathResult {
+  found: boolean;
+  path?: string[];
+  hops?: number;
+  minHops?: string;
 }
 
 interface RunMetadata {
@@ -31,6 +39,8 @@ export default function TrainingResultsPage({ params }: Props) {
   const [metadata, setMetadata] = useState<RunMetadata | null>(null);
   const [loading, setLoading] = useState(true);
   const [runId, setRunId] = useState<string>("");
+  const [shortestPath, setShortestPath] = useState<ShortestPathResult | null>(null);
+  const [loadingShortestPath, setLoadingShortestPath] = useState(false);
 
   useEffect(() => {
     // Unwrap params Promise
@@ -65,6 +75,28 @@ export default function TrainingResultsPage({ params }: Props) {
     }
   }, [runId, router]);
 
+  // Fetch shortest path when the user gave up
+  useEffect(() => {
+    if (!results?.gaveUp || !metadata) return;
+
+    const fetchShortestPath = async () => {
+      setLoadingShortestPath(true);
+      try {
+        const res = await fetch(
+          `/api/shortest-path?start=${encodeURIComponent(metadata.startTitle)}&target=${encodeURIComponent(metadata.targetTitle)}`
+        );
+        const data = await res.json();
+        setShortestPath(data as ShortestPathResult);
+      } catch {
+        setShortestPath({ found: false, minHops: "unknown" });
+      } finally {
+        setLoadingShortestPath(false);
+      }
+    };
+
+    fetchShortestPath();
+  }, [results?.gaveUp, metadata]);
+
   const formatTime = (ms: number): string => {
     const totalSeconds = Math.floor(ms / 1000);
     const minutes = Math.floor(totalSeconds / 60);
@@ -95,7 +127,9 @@ export default function TrainingResultsPage({ params }: Props) {
     <div className="py-8 space-y-6 max-w-2xl mx-auto">
       {/* Header */}
       <div className="text-center animate-scale-in">
-        <h1 className="text-display-sm mb-2">Run Complete!</h1>
+        <h1 className={`text-display-sm mb-2 ${results.gaveUp ? "text-destructive" : ""}`}>
+          {results.gaveUp ? "Gave Up" : "Run Complete!"}
+        </h1>
         <p className="text-muted-foreground">Training Mode</p>
       </div>
 
@@ -133,6 +167,54 @@ export default function TrainingResultsPage({ params }: Props) {
           <div className="text-sm text-muted-foreground mt-1">Misses</div>
         </div>
       </div>
+
+      {/* Shortest Path — only shown on give-up */}
+      {results.gaveUp && (
+        <div className="rounded-2xl border border-border/40 bg-card p-6 shadow-soft animate-slide-up" style={{ animationDelay: '125ms' }}>
+          <h2 className="font-semibold mb-3">Shortest Path</h2>
+          {loadingShortestPath ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+              Computing shortest path…
+            </div>
+          ) : shortestPath ? (
+            shortestPath.found && shortestPath.path ? (
+              <div>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Could have been done in{" "}
+                  <span className="font-bold text-foreground">
+                    {shortestPath.hops} click{shortestPath.hops !== 1 ? "s" : ""}
+                  </span>
+                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  {shortestPath.path.map((title, index) => (
+                    <span key={index} className="flex items-center">
+                      <span
+                        className={`px-2.5 py-1 rounded-lg text-sm ${
+                          index === 0
+                            ? "bg-secondary font-medium"
+                            : index === shortestPath.path!.length - 1
+                            ? "bg-primary/10 text-primary font-semibold"
+                            : "bg-muted"
+                        }`}
+                      >
+                        {title}
+                      </span>
+                      {index < shortestPath.path!.length - 1 && (
+                        <span className="mx-1.5 text-muted-foreground/50">→</span>
+                      )}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                At least <span className="font-bold text-foreground">{shortestPath.minHops} clicks</span> — exact path couldn&apos;t be determined.
+              </p>
+            )
+          ) : null}
+        </div>
+      )}
 
       {/* Route Taken */}
       <div className="rounded-2xl border border-border/40 bg-card p-6 shadow-soft animate-slide-up" style={{ animationDelay: '150ms' }}>
@@ -195,15 +277,17 @@ export default function TrainingResultsPage({ params }: Props) {
           Play Again
         </Link>
 
-        <button
-          onClick={() => {
-            navigator.clipboard.writeText(shareText);
-            alert("Copied to clipboard!");
-          }}
-          className="flex-1 inline-flex items-center justify-center rounded-xl border border-border/60 bg-card px-4 py-3.5 text-sm font-semibold shadow-sm hover:bg-secondary hover:translate-y-[-1px] transition-all duration-200"
-        >
-          Share Result
-        </button>
+        {!results.gaveUp && (
+          <button
+            onClick={() => {
+              navigator.clipboard.writeText(shareText);
+              alert("Copied to clipboard!");
+            }}
+            className="flex-1 inline-flex items-center justify-center rounded-xl border border-border/60 bg-card px-4 py-3.5 text-sm font-semibold shadow-sm hover:bg-secondary hover:translate-y-[-1px] transition-all duration-200"
+          >
+            Share Result
+          </button>
+        )}
 
         <Link
           href="/"
