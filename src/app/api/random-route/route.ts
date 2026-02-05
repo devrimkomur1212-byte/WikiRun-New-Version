@@ -174,15 +174,8 @@ export async function GET(request: Request) {
     // Assign difficulty - for ranked mode, mostly medium with some variety
     let difficulty: string;
     if (mode === "ranked") {
-      // Ranked: 70% medium, 15% easy, 15% hard
-      const roll = Math.random();
-      if (roll < 0.15) {
-        difficulty = "easy";
-      } else if (roll < 0.85) {
-        difficulty = "medium";
-      } else {
-        difficulty = "hard";
-      }
+      // TEMP: All ranked games are easy for testing
+      difficulty = "easy";
     } else {
       // Default: equal distribution
       const difficulties = ["easy", "medium", "hard"];
