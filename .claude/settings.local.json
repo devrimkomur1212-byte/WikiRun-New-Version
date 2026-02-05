@@ -24,7 +24,8 @@
       "Bash(npx vercel:*)",
       "Bash(tree:*)",
       "Bash(npx next dev:*)",
-      "Bash(timeout:*)"
+      "Bash(timeout:*)",
+      "Bash(ls -la \"c:\\\\Users\\\\devri\\\\OneDrive\\\\Desktop\\\\WikiRun New Version\"\" | grep -E \"^d.*public \")"
     ]
   },
   "mcpServers": {

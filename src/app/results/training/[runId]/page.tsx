@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/client";
 
 interface Props {
   params: Promise<{
@@ -41,6 +42,15 @@ export default function TrainingResultsPage({ params }: Props) {
   const [runId, setRunId] = useState<string>("");
   const [shortestPath, setShortestPath] = useState<ShortestPathResult | null>(null);
   const [loadingShortestPath, setLoadingShortestPath] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  // Check auth status
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setIsLoggedIn(!!user);
+    });
+  }, []);
 
   useEffect(() => {
     // Unwrap params Promise
@@ -75,9 +85,9 @@ export default function TrainingResultsPage({ params }: Props) {
     }
   }, [runId, router]);
 
-  // Fetch shortest path when the user gave up
+  // Fetch shortest path for all runs (not just give-up)
   useEffect(() => {
-    if (!results?.gaveUp || !metadata) return;
+    if (!results || !metadata) return;
 
     const fetchShortestPath = async () => {
       setLoadingShortestPath(true);
@@ -95,7 +105,7 @@ export default function TrainingResultsPage({ params }: Props) {
     };
 
     fetchShortestPath();
-  }, [results?.gaveUp, metadata]);
+  }, [results, metadata]);
 
   const formatTime = (ms: number): string => {
     const totalSeconds = Math.floor(ms / 1000);
@@ -168,53 +178,64 @@ export default function TrainingResultsPage({ params }: Props) {
         </div>
       </div>
 
-      {/* Shortest Path — only shown on give-up */}
-      {results.gaveUp && (
-        <div className="rounded-2xl border border-border/40 bg-card p-6 shadow-soft animate-slide-up" style={{ animationDelay: '125ms' }}>
-          <h2 className="font-semibold mb-3">Shortest Path</h2>
-          {loadingShortestPath ? (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-              Computing shortest path…
-            </div>
-          ) : shortestPath ? (
-            shortestPath.found && shortestPath.path ? (
-              <div>
-                <p className="text-sm text-muted-foreground mb-3">
-                  Could have been done in{" "}
-                  <span className="font-bold text-foreground">
-                    {shortestPath.hops} click{shortestPath.hops !== 1 ? "s" : ""}
+      {/* Shortest Path */}
+      <div className="rounded-2xl border border-border/40 bg-card p-6 shadow-soft animate-slide-up" style={{ animationDelay: '125ms' }}>
+        <h2 className="font-semibold mb-3">
+          {results.gaveUp ? "Shortest Path" : "Optimal Path"}
+        </h2>
+        {loadingShortestPath ? (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+            Computing optimal path…
+          </div>
+        ) : shortestPath ? (
+          shortestPath.found && shortestPath.path ? (
+            <div>
+              <p className="text-sm text-muted-foreground mb-3">
+                {results.gaveUp ? (
+                  <>Could have been done in{" "}</>
+                ) : results.clicksCount === shortestPath.hops ? (
+                  <>Perfect! You matched the optimal{" "}</>
+                ) : (
+                  <>Optimal route was{" "}</>
+                )}
+                <span className="font-bold text-foreground">
+                  {shortestPath.hops} click{shortestPath.hops !== 1 ? "s" : ""}
+                </span>
+                {!results.gaveUp && results.clicksCount > (shortestPath.hops || 0) && (
+                  <span className="text-muted-foreground">
+                    {" "}(you used {results.clicksCount - (shortestPath.hops || 0)} extra)
                   </span>
-                </p>
-                <div className="flex flex-wrap items-center gap-2">
-                  {shortestPath.path.map((title, index) => (
-                    <span key={index} className="flex items-center">
-                      <span
-                        className={`px-2.5 py-1 rounded-lg text-sm ${
-                          index === 0
-                            ? "bg-secondary font-medium"
-                            : index === shortestPath.path!.length - 1
-                            ? "bg-primary/10 text-primary font-semibold"
-                            : "bg-muted"
-                        }`}
-                      >
-                        {title}
-                      </span>
-                      {index < shortestPath.path!.length - 1 && (
-                        <span className="mx-1.5 text-muted-foreground/50">→</span>
-                      )}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                At least <span className="font-bold text-foreground">{shortestPath.minHops} clicks</span> — exact path couldn&apos;t be determined.
+                )}
               </p>
-            )
-          ) : null}
-        </div>
-      )}
+              <div className="flex flex-wrap items-center gap-2">
+                {shortestPath.path.map((title, index) => (
+                  <span key={index} className="flex items-center">
+                    <span
+                      className={`px-2.5 py-1 rounded-lg text-sm ${
+                        index === 0
+                          ? "bg-secondary font-medium"
+                          : index === shortestPath.path!.length - 1
+                          ? "bg-primary/10 text-primary font-semibold"
+                          : "bg-muted"
+                      }`}
+                    >
+                      {title}
+                    </span>
+                    {index < shortestPath.path!.length - 1 && (
+                      <span className="mx-1.5 text-muted-foreground/50">→</span>
+                    )}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              At least <span className="font-bold text-foreground">{shortestPath.minHops} clicks</span> — exact path couldn&apos;t be determined.
+            </p>
+          )
+        ) : null}
+      </div>
 
       {/* Route Taken */}
       <div className="rounded-2xl border border-border/40 bg-card p-6 shadow-soft animate-slide-up" style={{ animationDelay: '150ms' }}>
@@ -253,20 +274,22 @@ export default function TrainingResultsPage({ params }: Props) {
         </div>
       )}
 
-      {/* Sign up promotion */}
-      <div className="rounded-2xl bg-primary/10 border border-primary/20 p-6 shadow-soft animate-slide-up" style={{ animationDelay: '250ms' }}>
-        <h2 className="font-semibold mb-2 text-primary">Want to track your progress?</h2>
-        <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
-          Create an account to save your runs, compete in ranked matches, unlock achievements,
-          and climb the leaderboard!
-        </p>
-        <Link
-          href="/signup"
-          className="inline-flex items-center justify-center rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-[0_2px_8px_-2px_hsl(var(--primary)/0.4)] hover:shadow-[0_4px_12px_-2px_hsl(var(--primary)/0.5)] hover:translate-y-[-1px] transition-all duration-200"
-        >
-          Sign Up Now
-        </Link>
-      </div>
+      {/* Sign up promotion - only show if not logged in */}
+      {!isLoggedIn && (
+        <div className="rounded-2xl bg-primary/10 border border-primary/20 p-6 shadow-soft animate-slide-up" style={{ animationDelay: '250ms' }}>
+          <h2 className="font-semibold mb-2 text-primary">Want to track your progress?</h2>
+          <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
+            Create an account to save your runs, compete in ranked matches, unlock achievements,
+            and climb the leaderboard!
+          </p>
+          <Link
+            href="/signup"
+            className="inline-flex items-center justify-center rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-[0_2px_8px_-2px_hsl(var(--primary)/0.4)] hover:shadow-[0_4px_12px_-2px_hsl(var(--primary)/0.5)] hover:translate-y-[-1px] transition-all duration-200"
+          >
+            Sign Up Now
+          </Link>
+        </div>
+      )}
 
       {/* Actions */}
       <div className="flex flex-col sm:flex-row gap-3 animate-slide-up" style={{ animationDelay: '300ms' }}>

@@ -1,6 +1,52 @@
 import { create } from "zustand";
 import type { RunStep } from "@/types/run.types";
 
+// Helper types and functions for session storage persistence
+const STORAGE_KEY_PREFIX = "run-state-";
+
+interface SavedRunState {
+  activeTimeMs: number;
+  clicksCount: number;
+  missesCount: number;
+  routeTitles: string[];
+  steps: RunStep[];
+  currentTitle: string;
+  savedAt: number;
+}
+
+function saveToSession(runId: string, state: Omit<SavedRunState, "savedAt">) {
+  if (typeof window === "undefined") return;
+  const key = STORAGE_KEY_PREFIX + runId;
+  const toSave: SavedRunState = {
+    ...state,
+    savedAt: Date.now(),
+  };
+  sessionStorage.setItem(key, JSON.stringify(toSave));
+}
+
+function loadFromSession(runId: string): SavedRunState | null {
+  if (typeof window === "undefined") return null;
+  const key = STORAGE_KEY_PREFIX + runId;
+  const data = sessionStorage.getItem(key);
+  if (!data) return null;
+  try {
+    const parsed = JSON.parse(data) as SavedRunState;
+    // Only restore if saved recently (within 30 minutes)
+    if (Date.now() - parsed.savedAt > 30 * 60 * 1000) {
+      sessionStorage.removeItem(key);
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function clearSession(runId: string) {
+  if (typeof window === "undefined") return;
+  sessionStorage.removeItem(STORAGE_KEY_PREFIX + runId);
+}
+
 interface RunState {
   // Run metadata
   runId: string | null;
@@ -105,30 +151,68 @@ export const useRunStore = create<RunState>((set, get) => ({
       targetTitle: data.targetTitle,
     });
 
-    set({
-      ...initialState,
-      runId: data.runId,
-      mode: data.mode,
-      startTitle: data.startTitle,
-      targetTitle: data.targetTitle,
-      routeId: data.routeId,
-      matchId: data.matchId,
-      currentTitle: title,
-      currentHtml: html,
-      outgoingLinks: data.outgoingLinks || [],
-      routeTitles: [title],
-      steps: [
-        {
+    // Check for saved state (handles refresh during run)
+    const savedState = loadFromSession(data.runId);
+
+    if (savedState && savedState.routeTitles && savedState.routeTitles.length > 0) {
+      console.log('[RunStore] Restoring saved state:', {
+        savedClicks: savedState.clicksCount,
+        savedTimeMs: savedState.activeTimeMs,
+        savedRoute: savedState.routeTitles,
+      });
+
+      set({
+        ...initialState,
+        runId: data.runId,
+        mode: data.mode,
+        startTitle: data.startTitle,
+        targetTitle: data.targetTitle,
+        routeId: data.routeId,
+        matchId: data.matchId,
+        currentTitle: title,
+        currentHtml: html,
+        outgoingLinks: data.outgoingLinks || [],
+        // Restore saved progress
+        activeTimeMs: savedState.activeTimeMs || 0,
+        clicksCount: savedState.clicksCount || 0,
+        missesCount: savedState.missesCount || 0,
+        routeTitles: savedState.routeTitles || [title],
+        steps: savedState.steps || [{
           title: title,
           timestamp_entered: Date.now(),
           timestamp_left: null,
           had_direct_link_to_target: false,
-        },
-      ],
-      // Start timer immediately on initialization
-      timerRunning: true,
-      timerStartedAt: performance.now(),
-    });
+        }],
+        // Resume timer from saved time
+        timerRunning: true,
+        timerStartedAt: performance.now(),
+      });
+    } else {
+      set({
+        ...initialState,
+        runId: data.runId,
+        mode: data.mode,
+        startTitle: data.startTitle,
+        targetTitle: data.targetTitle,
+        routeId: data.routeId,
+        matchId: data.matchId,
+        currentTitle: title,
+        currentHtml: html,
+        outgoingLinks: data.outgoingLinks || [],
+        routeTitles: [title],
+        steps: [
+          {
+            title: title,
+            timestamp_entered: Date.now(),
+            timestamp_left: null,
+            had_direct_link_to_target: false,
+          },
+        ],
+        // Start timer immediately on initialization
+        timerRunning: true,
+        timerStartedAt: performance.now(),
+      });
+    }
 
     console.log('[RunStore] State after init:', {
       currentTitle: title,
@@ -205,14 +289,35 @@ export const useRunStore = create<RunState>((set, get) => ({
       had_direct_link_to_target: false,
     });
 
+    const newClicksCount = state.clicksCount + 1;
+    const newMissesCount = state.missesCount + (isMiss ? 1 : 0);
+    const newRouteTitles = [...state.routeTitles, nextTitle];
+
     set({
       currentTitle: nextTitle,
-      clicksCount: state.clicksCount + 1,
-      missesCount: state.missesCount + (isMiss ? 1 : 0),
-      routeTitles: [...state.routeTitles, nextTitle],
+      clicksCount: newClicksCount,
+      missesCount: newMissesCount,
+      routeTitles: newRouteTitles,
       steps: updatedSteps,
       isTargetReached,
     });
+
+    // Save to session storage (for refresh protection)
+    if (state.runId) {
+      // Calculate current active time including running timer
+      let currentActiveTime = state.activeTimeMs;
+      if (state.timerRunning && state.timerStartedAt !== null) {
+        currentActiveTime += performance.now() - state.timerStartedAt;
+      }
+      saveToSession(state.runId, {
+        activeTimeMs: Math.round(currentActiveTime),
+        clicksCount: newClicksCount,
+        missesCount: newMissesCount,
+        routeTitles: newRouteTitles,
+        steps: updatedSteps,
+        currentTitle: nextTitle,
+      });
+    }
   },
 
   completeRun: () => {
@@ -239,6 +344,11 @@ export const useRunStore = create<RunState>((set, get) => ({
       activeTimeMs: Math.round(finalActiveTime),
       steps: updatedSteps,
     });
+
+    // Clear session storage - run is complete
+    if (state.runId) {
+      clearSession(state.runId);
+    }
 
     return {
       activeTimeMs: Math.round(finalActiveTime),

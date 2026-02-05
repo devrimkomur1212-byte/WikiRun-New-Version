@@ -2,6 +2,28 @@ import { NextResponse } from "next/server";
 
 const WIKI_API_BASE = "https://en.wikipedia.org/w/api.php";
 
+// Popular, well-known articles for easy mode
+const POPULAR_ARTICLES: string[] = [
+  // Countries
+  "United States", "France", "Japan", "Brazil", "India", "Germany", "Canada",
+  "Australia", "China", "Italy", "Mexico", "United Kingdom", "Russia", "Egypt",
+  "South Korea", "Argentina", "Nigeria", "Thailand", "Vietnam", "Peru",
+  // Cities
+  "New York City", "London", "Paris", "Tokyo", "Sydney", "Berlin", "Rome",
+  "Los Angeles", "Chicago", "Toronto", "Madrid", "Mumbai", "Cairo", "Bangkok",
+  // Famous people
+  "Albert Einstein", "Leonardo da Vinci", "Isaac Newton", "Marie Curie",
+  "William Shakespeare", "Wolfgang Amadeus Mozart", "Charles Darwin",
+  "Nikola Tesla", "Alan Turing", "Cleopatra", "Napoleon Bonaparte",
+  // Broadly well-known topics
+  "World War II", "The Internet", "Soccer", "Olympic Games", "Space shuttle",
+  "Mount Everest", "Amazon River", "Great Wall of China", "Coffee", "Pizza",
+];
+
+function getPopularArticle(): string {
+  return POPULAR_ARTICLES[Math.floor(Math.random() * POPULAR_ARTICLES.length)];
+}
+
 // List of obscure topic categories to pick from for more interesting routes
 const OBSCURE_CATEGORIES = [
   "Category:Medieval_people",
@@ -124,54 +146,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const mode = searchParams.get("mode");
 
-    // Strategy: Use a mix of random and category-based articles for variety
-    const useCategory = Math.random() < 0.5;
-
-    let candidates: string[] = [];
-
-    if (useCategory) {
-      // Pick a random obscure category
-      const category = OBSCURE_CATEGORIES[Math.floor(Math.random() * OBSCURE_CATEGORIES.length)];
-      candidates = await getRandomFromCategory(category);
-    }
-
-    // If category didn't yield enough, fall back to random
-    if (candidates.length < 10) {
-      const randomArticles = await getRandomArticles(20);
-      candidates = [...candidates, ...randomArticles];
-    }
-
-    // Shuffle candidates
-    candidates = candidates.sort(() => Math.random() - 0.5);
-
-    // Find two valid articles (with enough links)
-    let startTitle: string | null = null;
-    let targetTitle: string | null = null;
-
-    for (const candidate of candidates) {
-      if (!startTitle) {
-        const valid = await validateArticleHasLinks(candidate);
-        if (valid) {
-          startTitle = candidate;
-          continue;
-        }
-      } else if (!targetTitle && candidate !== startTitle) {
-        const valid = await validateArticleHasLinks(candidate);
-        if (valid) {
-          targetTitle = candidate;
-          break;
-        }
-      }
-    }
-
-    if (!startTitle || !targetTitle) {
-      // Fallback: just get any two random articles
-      const fallback = await getRandomArticles(2);
-      startTitle = fallback[0] || "Philosophy";
-      targetTitle = fallback[1] || "Mathematics";
-    }
-
-    // Assign difficulty - for ranked mode, mostly medium with some variety
+    // Determine difficulty first
     let difficulty: string;
     if (mode === "ranked") {
       // TEMP: All ranked games are easy for testing
@@ -180,6 +155,62 @@ export async function GET(request: Request) {
       // Default: equal distribution
       const difficulties = ["easy", "medium", "hard"];
       difficulty = difficulties[Math.floor(Math.random() * difficulties.length)];
+    }
+
+    let startTitle: string | null = null;
+    let targetTitle: string | null = null;
+
+    // For easy difficulty, use popular articles (familiar territory)
+    if (difficulty === "easy") {
+      startTitle = getPopularArticle();
+      targetTitle = getPopularArticle();
+      while (targetTitle === startTitle) {
+        targetTitle = getPopularArticle();
+      }
+    } else {
+      // For medium/hard, use obscure categories or random articles
+      const useCategory = Math.random() < 0.5;
+
+      let candidates: string[] = [];
+
+      if (useCategory) {
+        // Pick a random obscure category
+        const category = OBSCURE_CATEGORIES[Math.floor(Math.random() * OBSCURE_CATEGORIES.length)];
+        candidates = await getRandomFromCategory(category);
+      }
+
+      // If category didn't yield enough, fall back to random
+      if (candidates.length < 10) {
+        const randomArticles = await getRandomArticles(20);
+        candidates = [...candidates, ...randomArticles];
+      }
+
+      // Shuffle candidates
+      candidates = candidates.sort(() => Math.random() - 0.5);
+
+      // Find two valid articles (with enough links)
+      for (const candidate of candidates) {
+        if (!startTitle) {
+          const valid = await validateArticleHasLinks(candidate);
+          if (valid) {
+            startTitle = candidate;
+            continue;
+          }
+        } else if (!targetTitle && candidate !== startTitle) {
+          const valid = await validateArticleHasLinks(candidate);
+          if (valid) {
+            targetTitle = candidate;
+            break;
+          }
+        }
+      }
+
+      if (!startTitle || !targetTitle) {
+        // Fallback: just get any two random articles
+        const fallback = await getRandomArticles(2);
+        startTitle = fallback[0] || "Philosophy";
+        targetTitle = fallback[1] || "Mathematics";
+      }
     }
 
     return NextResponse.json({
