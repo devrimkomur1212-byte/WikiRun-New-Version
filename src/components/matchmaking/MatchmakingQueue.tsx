@@ -147,70 +147,62 @@ export function MatchmakingQueue({
     return () => clearInterval(interval);
   }, [state.status]);
 
-  // Handle countdown when matched
+  // Handle countdown when matched - single unified effect
   useEffect(() => {
-    if (state.status !== "matched") return;
+    if (state.status !== "matched" && state.status !== "countdown") return;
 
-    const startTimeMs = new Date(state.startTime).getTime();
-    const now = Date.now();
-    const msUntilStart = startTimeMs - now;
+    // Get the start time and route info
+    const startTime = state.status === "matched" ? state.startTime : null;
+    const runId = state.runId;
+    const startTitle = state.route.startTitle;
 
-    if (msUntilStart <= 0) {
-      // Already past start time, go immediately
-      navigateToGame(state.runId, state.route.startTitle);
-      return;
-    }
+    // If we don't have start time info, we can't countdown
+    if (!startTime && state.status === "matched") return;
 
-    // Start countdown
+    // Calculate target time
+    const startTimeMs = startTime ? new Date(startTime).getTime() : Date.now();
+
     const updateCountdown = () => {
       const remaining = startTimeMs - Date.now();
+
       if (remaining <= 0) {
-        navigateToGame(state.runId, state.route.startTitle);
-      } else {
-        setState((prev) => {
-          if (prev.status === "matched") {
-            return {
-              status: "countdown",
-              secondsLeft: Math.ceil(remaining / 1000),
-              runId: prev.runId,
-              route: prev.route,
-              opponentElo: prev.opponentElo,
-            };
-          }
-          if (prev.status === "countdown") {
-            return {
-              ...prev,
-              secondsLeft: Math.ceil(remaining / 1000),
-            };
-          }
-          return prev;
-        });
+        // Time's up - navigate to game
+        router.push(`/run/${runId}/article/${encodeURIComponent(startTitle)}`);
+        return true; // Signal to stop interval
       }
+
+      const secondsLeft = Math.ceil(remaining / 1000);
+
+      setState((prev) => {
+        if (prev.status === "matched" || prev.status === "countdown") {
+          return {
+            status: "countdown",
+            secondsLeft,
+            runId: prev.runId,
+            route: prev.route,
+            opponentElo: prev.opponentElo,
+          };
+        }
+        return prev;
+      });
+
+      return false; // Continue interval
     };
 
-    updateCountdown();
-    const interval = setInterval(updateCountdown, 100);
+    // Run immediately
+    const shouldStop = updateCountdown();
+    if (shouldStop) return;
 
-    return () => clearInterval(interval);
-  }, [state.status === "matched"]);
-
-  // Continue countdown updates
-  useEffect(() => {
-    if (state.status !== "countdown") return;
-
-    const checkTime = () => {
-      if (state.secondsLeft <= 0) {
-        navigateToGame(state.runId, state.route.startTitle);
+    // Then run every 100ms
+    const interval = setInterval(() => {
+      const shouldStop = updateCountdown();
+      if (shouldStop) {
+        clearInterval(interval);
       }
-    };
+    }, 100);
 
-    const interval = setInterval(checkTime, 100);
     return () => clearInterval(interval);
-  }, [state.status === "countdown"]);
-
-  const navigateToGame = (runId: string, startTitle: string) => {
-    router.push(`/run/${runId}/article/${encodeURIComponent(startTitle)}`);
-  };
+  }, [state.status, state.status === "matched" ? state.startTime : null, router]);
 
   const handleCancel = async () => {
     try {
