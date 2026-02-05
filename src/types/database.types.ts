@@ -127,6 +127,7 @@ export type Database = {
           step_data: Json;
           is_flagged: boolean;
           is_completed: boolean;
+          gave_up: boolean;
           created_at: string;
         };
         Insert: {
@@ -144,6 +145,7 @@ export type Database = {
           step_data?: Json;
           is_flagged?: boolean;
           is_completed?: boolean;
+          gave_up?: boolean;
           created_at?: string;
         };
         Update: {
@@ -161,6 +163,7 @@ export type Database = {
           step_data?: Json;
           is_flagged?: boolean;
           is_completed?: boolean;
+          gave_up?: boolean;
           created_at?: string;
         };
       };

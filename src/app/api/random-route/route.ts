@@ -118,8 +118,12 @@ async function validateArticleHasLinks(title: string): Promise<boolean> {
   }
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    // Check if this is for ranked mode (weighted difficulty)
+    const { searchParams } = new URL(request.url);
+    const mode = searchParams.get("mode");
+
     // Strategy: Use a mix of random and category-based articles for variety
     const useCategory = Math.random() < 0.5;
 
@@ -167,9 +171,23 @@ export async function GET() {
       targetTitle = fallback[1] || "Mathematics";
     }
 
-    // Randomly assign difficulty based on obscurity
-    const difficulties = ["easy", "medium", "hard"];
-    const difficulty = difficulties[Math.floor(Math.random() * difficulties.length)];
+    // Assign difficulty - for ranked mode, mostly medium with some variety
+    let difficulty: string;
+    if (mode === "ranked") {
+      // Ranked: 70% medium, 15% easy, 15% hard
+      const roll = Math.random();
+      if (roll < 0.15) {
+        difficulty = "easy";
+      } else if (roll < 0.85) {
+        difficulty = "medium";
+      } else {
+        difficulty = "hard";
+      }
+    } else {
+      // Default: equal distribution
+      const difficulties = ["easy", "medium", "hard"];
+      difficulty = difficulties[Math.floor(Math.random() * difficulties.length)];
+    }
 
     return NextResponse.json({
       startTitle,

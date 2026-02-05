@@ -16,7 +16,15 @@
       "WebFetch(domain:api.github.com)",
       "Bash(netstat:*)",
       "Bash(findstr:*)",
-      "WebFetch(domain:wiki-run-new-version-31r1.vercel.app)"
+      "Bash(git add:*)",
+      "Bash(git push)",
+      "Bash(./node_modules/.bin/tsc:*)",
+      "Bash(git push:*)",
+      "Bash(npx shadcn@latest init:*)",
+      "Bash(npx vercel:*)",
+      "Bash(tree:*)",
+      "Bash(npx next dev:*)",
+      "Bash(timeout:*)"
     ]
   },
   "mcpServers": {
@@ -28,7 +36,9 @@
     },
     "supabase": {
       "url": "https://mcp.supabase.com/mcp?project_ref=nvnbkcxolbdavnsbwqkx",
-      "headers": {}
+      "headers": {
+        "Authorization": "sbp_1ff1d5b6781eed203fbd6472dee8559f02986cc4"
+      }
     },
     "firecrawl": {
       "command": "npx",
@@ -38,6 +48,15 @@
       ],
       "env": {
         "FIRECRAWL_API_KEY": "fc-1442d78502f04f75a119b980eb5ff573"
+      }
+    },
+    "vercel": {
+      "url": "https://mcp.vercel.com"
+    },
+    "github": {
+      "url": "https://api.githubcopilot.com/mcp/",
+      "headers": {
+        "Authorization": "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"
       }
     }
   }

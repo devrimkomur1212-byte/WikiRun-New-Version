@@ -33,6 +33,77 @@ export async function joinMatchmakingQueue() {
     throw new Error("Unauthorized");
   }
 
+  // First, check if user already has a pending match (prevents re-queuing after match is created)
+  const { data: existingMatchData } = await supabase
+    .from("matches")
+    .select("id, start_time, player1_id, player2_id")
+    .or(`player1_id.eq.${user.id},player2_id.eq.${user.id}`)
+    .eq("status", "pending")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (existingMatchData) {
+    const existingMatch = existingMatchData as {
+      id: string;
+      start_time: string | null;
+      player1_id: string;
+      player2_id: string;
+    };
+
+    // Find the user's run for this match
+    const { data: existingRunData } = await supabase
+      .from("runs")
+      .select("id, start_title, target_title")
+      .eq("match_id", existingMatch.id)
+      .eq("user_id", user.id)
+      .single();
+
+    if (existingRunData) {
+      const existingRun = existingRunData as {
+        id: string;
+        start_title: string;
+        target_title: string;
+      };
+
+      // Get opponent's ELO
+      const opponentId =
+        existingMatch.player1_id === user.id
+          ? existingMatch.player2_id
+          : existingMatch.player1_id;
+
+      const { data: opponentProfileData } = await supabase
+        .from("profiles")
+        .select("elo_rating")
+        .eq("id", opponentId)
+        .single();
+
+      const opponentProfile = opponentProfileData as { elo_rating: number } | null;
+
+      logger.info('matchmaking', 'User already has pending match', {
+        matchId: existingMatch.id,
+        runId: existingRun.id,
+      });
+
+      // Remove from queue if still there
+      await serviceSupabase.from("queue_ranked").delete().eq("user_id", user.id);
+
+      return {
+        status: "matched" as const,
+        matchId: existingMatch.id,
+        runId: existingRun.id,
+        startTime: existingMatch.start_time || new Date().toISOString(),
+        route: {
+          startTitle: existingRun.start_title,
+          targetTitle: existingRun.target_title,
+        },
+        opponent: {
+          elo: opponentProfile?.elo_rating ?? 1000,
+        },
+      };
+    }
+  }
+
   // Get user's ELO from profile
   const { data: profileData } = await supabase
     .from("profiles")
@@ -152,10 +223,10 @@ async function createMatch(
 ) {
   logger.info('matchmaking', 'Creating match', { userId, opponentId: opponent.user_id });
 
-  // Generate a shared route
+  // Generate a shared route for ranked (weighted difficulty: 70% medium)
   logger.debug('matchmaking', 'Generating route...');
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
-  const response = await fetch(`${baseUrl}/api/random-route`);
+  const response = await fetch(`${baseUrl}/api/random-route?mode=ranked`);
 
   if (!response.ok) {
     logger.error('matchmaking', 'Failed to generate route', { status: response.status });

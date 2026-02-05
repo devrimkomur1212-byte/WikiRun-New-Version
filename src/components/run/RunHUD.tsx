@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useRunStore } from "@/lib/run/runStore";
 import { Timer } from "./Timer";
+import { giveUpRankedRun } from "@/app/actions/submitRun";
 
 export function RunHUD() {
   const router = useRouter();
@@ -19,8 +20,9 @@ export function RunHUD() {
   const completeRun = useRunStore((state) => state.completeRun);
 
   const [confirmingGiveUp, setConfirmingGiveUp] = useState(false);
+  const [isGivingUp, setIsGivingUp] = useState(false);
 
-  const handleGiveUp = () => {
+  const handleGiveUpTraining = () => {
     const runData = completeRun();
     localStorage.setItem(
       `run-results-${runId}`,
@@ -35,6 +37,29 @@ export function RunHUD() {
       })
     );
     router.push(`/results/training/${runId}`);
+  };
+
+  const handleGiveUpRanked = async () => {
+    if (!runId || isGivingUp) return;
+
+    setIsGivingUp(true);
+    try {
+      await giveUpRankedRun(runId);
+      completeRun();
+      router.push(`/results/${runId}`);
+    } catch (error) {
+      console.error("Failed to give up:", error);
+      setIsGivingUp(false);
+      setConfirmingGiveUp(false);
+    }
+  };
+
+  const handleGiveUp = () => {
+    if (mode === "training") {
+      handleGiveUpTraining();
+    } else if (mode === "ranked") {
+      handleGiveUpRanked();
+    }
   };
 
   return (
@@ -70,21 +95,25 @@ export function RunHUD() {
               <span className="text-xs text-muted-foreground">Clicks</span>
             </div>
 
-            {/* Give Up — training only */}
-            {mode === "training" && !isTargetReached && (
+            {/* Give Up — training and ranked */}
+            {(mode === "training" || mode === "ranked") && !isTargetReached && (
               <div className="flex items-center gap-2">
                 {confirmingGiveUp ? (
                   <>
-                    <span className="text-xs text-muted-foreground">Sure?</span>
+                    <span className="text-xs text-muted-foreground">
+                      {mode === "ranked" ? "Forfeit?" : "Sure?"}
+                    </span>
                     <button
                       onClick={handleGiveUp}
-                      className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-destructive text-destructive-foreground hover:opacity-90 transition-opacity"
+                      disabled={isGivingUp}
+                      className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-destructive text-destructive-foreground hover:opacity-90 transition-opacity disabled:opacity-50"
                     >
-                      Yes
+                      {isGivingUp ? "..." : "Yes"}
                     </button>
                     <button
                       onClick={() => setConfirmingGiveUp(false)}
-                      className="px-3 py-1.5 rounded-lg text-xs font-medium border border-border/60 bg-card hover:bg-secondary transition-colors"
+                      disabled={isGivingUp}
+                      className="px-3 py-1.5 rounded-lg text-xs font-medium border border-border/60 bg-card hover:bg-secondary transition-colors disabled:opacity-50"
                     >
                       No
                     </button>
@@ -94,7 +123,7 @@ export function RunHUD() {
                     onClick={() => setConfirmingGiveUp(true)}
                     className="px-3 py-1.5 rounded-lg text-xs font-medium border border-border/60 bg-card text-muted-foreground hover:text-destructive hover:border-destructive/40 transition-colors"
                   >
-                    Give Up
+                    {mode === "ranked" ? "Forfeit" : "Give Up"}
                   </button>
                 )}
               </div>

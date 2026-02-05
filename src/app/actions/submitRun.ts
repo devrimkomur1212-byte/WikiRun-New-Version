@@ -300,3 +300,238 @@ function calculateEloChange(
   const delta2 = -delta1;
   return { delta1, delta2 };
 }
+
+/**
+ * Give up a ranked run - results in automatic loss unless opponent also gave up
+ */
+export async function giveUpRankedRun(runId: string) {
+  const supabase = await createClient();
+  const serviceSupabase = await createServiceClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error("Unauthorized");
+  }
+
+  // Fetch the run to verify ownership and get match info
+  const { data: runData, error: runError } = await supabase
+    .from("runs")
+    .select("*")
+    .eq("id", runId)
+    .eq("user_id", user.id)
+    .single();
+
+  if (runError || !runData) {
+    throw new Error("Run not found or unauthorized");
+  }
+
+  const run = runData as RunRow;
+
+  if (run.is_completed) {
+    throw new Error("Run already completed");
+  }
+
+  if (run.mode !== "ranked" || !run.match_id) {
+    throw new Error("This is not a ranked run");
+  }
+
+  // Mark the run as completed with gave_up flag
+  const { error: updateError } = await supabase
+    .from("runs")
+    .update({
+      is_completed: true,
+      gave_up: true,
+      active_time_ms: 0, // Set to 0 to indicate gave up
+      clicks_count: run.route_titles?.length ? (run.route_titles as string[]).length - 1 : 0,
+    } as never)
+    .eq("id", runId)
+    .eq("user_id", user.id);
+
+  if (updateError) {
+    throw new Error("Failed to update run: " + updateError.message);
+  }
+
+  // Link run to match and check if we need to resolve
+  await linkRunToMatchWithGiveUp(runId, run.match_id, user.id);
+
+  revalidatePath("/dashboard");
+  revalidatePath(`/results/${runId}`);
+
+  return { success: true, matchId: run.match_id };
+}
+
+async function linkRunToMatchWithGiveUp(
+  runId: string,
+  matchId: string,
+  userId: string
+) {
+  const supabase = await createServiceClient();
+
+  // Fetch the match
+  const { data: matchData, error: matchError } = await supabase
+    .from("matches")
+    .select("*")
+    .eq("id", matchId)
+    .single();
+
+  if (matchError || !matchData) {
+    console.error("Failed to fetch match:", matchError);
+    return;
+  }
+
+  const match = matchData as MatchRow;
+
+  // Determine if this user is player1 or player2
+  const isPlayer1 = match.player1_id === userId;
+  const isPlayer2 = match.player2_id === userId;
+
+  if (!isPlayer1 && !isPlayer2) {
+    console.error("User is not a participant in this match");
+    return;
+  }
+
+  // Update the match with the run ID
+  const updateField = isPlayer1 ? "player1_run_id" : "player2_run_id";
+  const { error: updateError } = await supabase
+    .from("matches")
+    .update({ [updateField]: runId } as never)
+    .eq("id", matchId);
+
+  if (updateError) {
+    console.error("Failed to update match:", updateError);
+    return;
+  }
+
+  // Check if both players have completed their runs
+  const otherRunId = isPlayer1 ? match.player2_run_id : match.player1_run_id;
+
+  if (otherRunId) {
+    // Both runs are complete, resolve the match (considering give ups)
+    await resolveMatchWithGiveUp(matchId);
+  }
+}
+
+async function resolveMatchWithGiveUp(matchId: string) {
+  const supabase = await createServiceClient();
+
+  // Fetch the match with both runs
+  const { data: matchData, error: matchError } = await supabase
+    .from("matches")
+    .select("*, player1_run:runs!player1_run_id(*), player2_run:runs!player2_run_id(*)")
+    .eq("id", matchId)
+    .single();
+
+  if (matchError || !matchData) {
+    console.error("Failed to fetch match for resolution:", matchError);
+    return;
+  }
+
+  const match = matchData as MatchRow & {
+    player1_run: (RunRow & { gave_up?: boolean }) | null;
+    player2_run: (RunRow & { gave_up?: boolean }) | null;
+  };
+
+  const player1Run = match.player1_run;
+  const player2Run = match.player2_run;
+
+  if (!player1Run || !player2Run) {
+    console.error("Both runs must be complete to resolve match");
+    return;
+  }
+
+  // Determine winner considering give ups
+  let winnerId: string | null = null;
+  const p1GaveUp = player1Run.gave_up === true;
+  const p2GaveUp = player2Run.gave_up === true;
+
+  if (p1GaveUp && p2GaveUp) {
+    // Both gave up - it's a draw
+    winnerId = null;
+  } else if (p1GaveUp) {
+    // Player 1 gave up - Player 2 wins
+    winnerId = match.player2_id;
+  } else if (p2GaveUp) {
+    // Player 2 gave up - Player 1 wins
+    winnerId = match.player1_id;
+  } else {
+    // Normal resolution - lowest time wins
+    if (player1Run.active_time_ms < player2Run.active_time_ms) {
+      winnerId = match.player1_id;
+    } else if (player2Run.active_time_ms < player1Run.active_time_ms) {
+      winnerId = match.player2_id;
+    } else {
+      // Tie-breaker 1: fewer clicks
+      if (player1Run.clicks_count < player2Run.clicks_count) {
+        winnerId = match.player1_id;
+      } else if (player2Run.clicks_count < player1Run.clicks_count) {
+        winnerId = match.player2_id;
+      } else {
+        // Tie-breaker 2: fewer misses
+        if (player1Run.misses_count < player2Run.misses_count) {
+          winnerId = match.player1_id;
+        } else if (player2Run.misses_count < player1Run.misses_count) {
+          winnerId = match.player2_id;
+        }
+        // If still tied, winnerId remains null (draw)
+      }
+    }
+  }
+
+  // Fetch both profiles for ELO calculation
+  const { data: profilesData } = await supabase
+    .from("profiles")
+    .select("id, elo_rating, games_played_ranked")
+    .in("id", [match.player1_id, match.player2_id]);
+
+  const profiles = profilesData as { id: string; elo_rating: number; games_played_ranked: number }[] | null;
+
+  if (!profiles || profiles.length !== 2) {
+    console.error("Failed to fetch profiles for ELO calculation");
+    return;
+  }
+
+  const p1Profile = profiles.find((p) => p.id === match.player1_id)!;
+  const p2Profile = profiles.find((p) => p.id === match.player2_id)!;
+
+  // Calculate ELO changes
+  const { delta1, delta2 } = calculateEloChange(
+    p1Profile.elo_rating,
+    p2Profile.elo_rating,
+    winnerId === match.player1_id ? 1 : winnerId === match.player2_id ? 0 : 0.5
+  );
+
+  // Update match
+  await supabase
+    .from("matches")
+    .update({
+      status: "complete",
+      winner_id: winnerId,
+      elo_delta_p1: delta1,
+      elo_delta_p2: delta2,
+    } as never)
+    .eq("id", matchId);
+
+  // Update profiles
+  await supabase
+    .from("profiles")
+    .update({
+      elo_rating: p1Profile.elo_rating + delta1,
+      games_played_ranked: p1Profile.games_played_ranked + 1,
+    } as never)
+    .eq("id", match.player1_id);
+
+  await supabase
+    .from("profiles")
+    .update({
+      elo_rating: p2Profile.elo_rating + delta2,
+      games_played_ranked: p2Profile.games_played_ranked + 1,
+    } as never)
+    .eq("id", match.player2_id);
+
+  // Evaluate achievements for both players
+  await evaluateAchievements(match.player1_id);
+  await evaluateAchievements(match.player2_id);
+}
