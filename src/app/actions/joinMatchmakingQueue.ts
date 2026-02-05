@@ -71,6 +71,15 @@ export async function joinMatchmakingQueue() {
     throw new Error("Failed to join queue: " + queueError.message);
   }
 
+  // Re-check after insert — handles race condition where opponent inserted simultaneously
+  const matchAfterInsert = await findMatchInQueue(serviceSupabase, user.id, userElo);
+  if (matchAfterInsert) {
+    logger.info('matchmaking', 'Match found on re-check after insert');
+    // Remove self from queue before creating match (we just inserted ourselves above)
+    await supabase.from("queue_ranked").delete().eq("user_id", user.id);
+    return await createMatch(serviceSupabase, supabase, user.id, userElo, matchAfterInsert);
+  }
+
   revalidatePath("/play");
 
   return {

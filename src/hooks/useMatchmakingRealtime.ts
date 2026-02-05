@@ -60,14 +60,35 @@ export function useMatchmakingRealtime({
           return;
         }
 
-        const run = runData as {
+        let run = runData as {
           id: string;
           start_title: string;
           target_title: string;
         } | null;
 
+        // Run may not exist yet — match INSERT triggers realtime before runs are created.
+        // Retry up to 3 times with 1-second delays.
         if (!run) {
-          logger.error('realtime', `Run not found for match ${matchId} and user ${userId}`);
+          for (let attempt = 1; attempt <= 3; attempt++) {
+            logger.debug('realtime', `Run not found, retrying in 1s (attempt ${attempt}/3)`);
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+
+            const { data: retryRunData } = await supabase
+              .from("runs")
+              .select("*")
+              .eq("match_id", matchId)
+              .eq("user_id", userId)
+              .single();
+
+            if (retryRunData) {
+              run = retryRunData as { id: string; start_title: string; target_title: string };
+              break;
+            }
+          }
+        }
+
+        if (!run) {
+          logger.error('realtime', `Run still not found after retries for match ${matchId} and user ${userId}`);
           return;
         }
 

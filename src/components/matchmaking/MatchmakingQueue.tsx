@@ -75,7 +75,7 @@ export function MatchmakingQueue({
 
   // Polling fallback when realtime fails
   useMatchmakingPolling({
-    enabled: usePollingFallback && state.status === 'searching',
+    enabled: state.status === 'searching',
     onMatchFound: handleMatchFound,
   });
 
