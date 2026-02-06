@@ -37,60 +37,82 @@ export function OpponentStatus() {
   const isRankedMatch = mode === "ranked" && matchId;
 
   useEffect(() => {
-    if (!isRankedMatch || isCompleted) return;
+    if (!isRankedMatch || isCompleted || opponentFinished) return;
 
     const supabase = createClient();
+    let isMounted = true;
 
     const checkOpponentStatus = async () => {
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!isMounted) return;
 
-      // Get match data to find opponent's run
-      const { data: matchData } = await supabase
-        .from("matches")
-        .select("player1_id, player2_id, player1_run_id, player2_run_id")
-        .eq("id", matchId)
-        .single();
+      try {
+        // Get current user
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          console.log("[OpponentStatus] No user found");
+          return;
+        }
 
-      if (!matchData) return;
+        // Get match data to find opponent's run
+        const { data: matchData, error: matchError } = await supabase
+          .from("matches")
+          .select("player1_id, player2_id, player1_run_id, player2_run_id")
+          .eq("id", matchId)
+          .single();
 
-      const match = matchData as unknown as MatchData;
+        if (matchError || !matchData) {
+          console.log("[OpponentStatus] Match not found:", matchError);
+          return;
+        }
 
-      // Determine which run is the opponent's
-      const isPlayer1 = match.player1_id === user.id;
-      const opponentRunId = isPlayer1 ? match.player2_run_id : match.player1_run_id;
+        const match = matchData as unknown as MatchData;
 
-      if (!opponentRunId) return; // Opponent hasn't started yet
+        // Determine which run is the opponent's
+        const isPlayer1 = match.player1_id === user.id;
+        const opponentRunId = isPlayer1 ? match.player2_run_id : match.player1_run_id;
 
-      // Check opponent's run status
-      const { data: opponentRunData } = await supabase
-        .from("runs")
-        .select("is_completed, gave_up, active_time_ms")
-        .eq("id", opponentRunId)
-        .single();
+        if (!opponentRunId) {
+          // Opponent hasn't submitted their run yet - this is normal
+          return;
+        }
 
-      if (!opponentRunData) return;
+        // Check opponent's run status
+        const { data: opponentRunData, error: runError } = await supabase
+          .from("runs")
+          .select("is_completed, gave_up, active_time_ms")
+          .eq("id", opponentRunId)
+          .single();
 
-      const opponentRun = opponentRunData as unknown as OpponentRunData;
+        if (runError || !opponentRunData) {
+          console.log("[OpponentStatus] Opponent run not found:", runError);
+          return;
+        }
 
-      if (opponentRun.is_completed) {
-        const run = opponentRun;
-        setOpponentFinished(true);
-        setOpponentTime(run.active_time_ms);
-        setOpponentGaveUp(run.gave_up === true);
-        setShowNotification(true);
+        const opponentRun = opponentRunData as unknown as OpponentRunData;
+
+        if (opponentRun.is_completed && isMounted) {
+          console.log("[OpponentStatus] Opponent finished!", opponentRun);
+          setOpponentFinished(true);
+          setOpponentTime(opponentRun.active_time_ms);
+          setOpponentGaveUp(opponentRun.gave_up === true);
+          setShowNotification(true);
+        }
+      } catch (error) {
+        console.error("[OpponentStatus] Error checking status:", error);
       }
     };
 
     // Check immediately
     checkOpponentStatus();
 
-    // Poll every 5 seconds (realtime would be better but this is simpler)
-    const interval = setInterval(checkOpponentStatus, 5000);
+    // Poll every 3 seconds (faster to catch opponent finishing)
+    const interval = setInterval(checkOpponentStatus, 3000);
 
-    return () => clearInterval(interval);
-  }, [isRankedMatch, matchId, isCompleted]);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [isRankedMatch, matchId, isCompleted, opponentFinished]);
 
   const formatTime = (ms: number): string => {
     const totalSeconds = Math.floor(ms / 1000);

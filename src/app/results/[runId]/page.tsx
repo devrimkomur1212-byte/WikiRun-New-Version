@@ -138,7 +138,8 @@ export default function RankedResultsPage({ params }: Props) {
 
   // Poll for match status and ELO delta
   useEffect(() => {
-    if (!run?.match_id || matchResolved) return;
+    if (!run?.match_id) return;
+    // Keep polling even after resolved to ensure we have latest data
 
     const pollMatchStatus = async () => {
       try {
@@ -146,10 +147,15 @@ export default function RankedResultsPage({ params }: Props) {
         if (!res.ok) return;
 
         const data = (await res.json()) as MatchStatus;
-        setMatchStatus(data);
 
-        if (data.status === "complete") {
+        // Only mark as resolved when we have BOTH complete status AND valid ELO data
+        // This prevents showing incorrect results before match is fully processed
+        if (data.status === "complete" && data.userEloDelta !== null) {
+          setMatchStatus(data);
           setMatchResolved(true);
+        } else if (data.status === "complete") {
+          // Match is complete but ELO not calculated yet - keep polling
+          setMatchStatus(data);
         }
       } catch {
         // Ignore polling errors
@@ -159,8 +165,13 @@ export default function RankedResultsPage({ params }: Props) {
     // Check immediately
     pollMatchStatus();
 
-    // Then poll every 3 seconds
-    const interval = setInterval(pollMatchStatus, 3000);
+    // Poll every 2 seconds (faster) until resolved, then stop
+    const interval = setInterval(() => {
+      if (!matchResolved) {
+        pollMatchStatus();
+      }
+    }, 2000);
+
     return () => clearInterval(interval);
   }, [run?.match_id, matchResolved]);
 
@@ -209,25 +220,25 @@ export default function RankedResultsPage({ params }: Props) {
         </p>
       </div>
 
-      {/* ELO Change - shown when match is resolved */}
-      {run.match_id && matchResolved && matchStatus?.userEloDelta !== null && (
+      {/* ELO Change - shown when match is fully resolved with ELO data */}
+      {run.match_id && matchResolved && matchStatus?.userEloDelta !== null && matchStatus?.userEloDelta !== undefined && (
         <div className="rounded-2xl border border-border/40 bg-card p-6 shadow-soft animate-slide-up text-center">
           <div
             className={`text-4xl font-bold ${
-              (matchStatus?.userEloDelta ?? 0) >= 0 ? "text-green-500" : "text-destructive"
+              matchStatus.userEloDelta >= 0 ? "text-green-500" : "text-destructive"
             }`}
           >
-            {(matchStatus?.userEloDelta ?? 0) >= 0 ? "+" : ""}
-            {matchStatus?.userEloDelta}
+            {matchStatus.userEloDelta >= 0 ? "+" : ""}
+            {matchStatus.userEloDelta}
           </div>
           <div className="text-sm text-muted-foreground mt-1">ELO</div>
-          {matchStatus?.isWinner && (
+          {matchStatus.isWinner === true && (
             <div className="text-sm text-green-500 mt-2 font-semibold">Victory!</div>
           )}
-          {matchStatus?.isDraw && (
+          {matchStatus.isDraw === true && (
             <div className="text-sm text-muted-foreground mt-2">Draw</div>
           )}
-          {!matchStatus?.isWinner && !matchStatus?.isDraw && matchResolved && (
+          {matchStatus.isWinner === false && matchStatus.isDraw === false && (
             <div className="text-sm text-destructive mt-2">Defeat</div>
           )}
         </div>
