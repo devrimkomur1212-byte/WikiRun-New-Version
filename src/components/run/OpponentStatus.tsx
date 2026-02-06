@@ -144,7 +144,7 @@ export function OpponentStatus() {
         clearInterval(checkInterval);
         triggerAutoEnd("time_exceeded");
       }
-    }, 100);
+    }, 1000);
 
     return () => clearInterval(checkInterval);
   }, [opponentFinished, opponentGaveUp, opponentTime, isCompleted, triggerAutoEnd]);
@@ -152,7 +152,7 @@ export function OpponentStatus() {
   // Full-screen overlay when auto-end triggers
   if (autoEndTriggered && autoEndReason) {
     return (
-      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/90 backdrop-blur-sm animate-fade-in">
+      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background animate-fade-in">
         <div className="text-center space-y-4 animate-scale-in">
           {autoEndReason === "opponent_forfeit" ? (
             <>
@@ -182,7 +182,7 @@ export function OpponentStatus() {
   if (isRankedMatch && opponentFinished && !opponentGaveUp && opponentTime !== null && !isCompleted) {
     return (
       <div className="fixed bottom-4 left-4 right-4 md:left-auto md:right-4 md:w-80 z-50">
-        <div className="rounded-xl border border-border/40 bg-card/95 backdrop-blur-sm shadow-lg px-4 py-3">
+        <div className="rounded-xl border border-border/40 bg-card shadow-lg px-4 py-3">
           <div className="flex items-center justify-between">
             <span className="text-xs text-muted-foreground">Time to beat</span>
             <span className="font-mono font-bold text-sm">{formatTime(opponentTime)}</span>

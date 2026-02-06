@@ -1,43 +1,53 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRunStore, selectCurrentTime } from "@/lib/run/runStore";
+import { useEffect, useRef } from "react";
+import { useRunStore } from "@/lib/run/runStore";
+
+function formatTime(ms: number): string {
+  const totalSeconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  const centiseconds = Math.floor((ms % 1000) / 10);
+
+  return `${minutes.toString().padStart(2, "0")}:${seconds
+    .toString()
+    .padStart(2, "0")}.${centiseconds.toString().padStart(2, "0")}`;
+}
 
 export function Timer() {
-  const [displayTime, setDisplayTime] = useState(0);
-  const timerRunning = useRunStore((state) => state.timerRunning);
-  const activeTimeMs = useRunStore((state) => state.activeTimeMs);
-  const timerStartedAt = useRunStore((state) => state.timerStartedAt);
+  const spanRef = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
-    if (!timerRunning) {
-      setDisplayTime(activeTimeMs);
-      return;
+    let rafId: number;
+
+    function tick() {
+      const { timerRunning, activeTimeMs, timerStartedAt } =
+        useRunStore.getState();
+
+      let displayTime: number;
+      if (timerRunning && timerStartedAt !== null) {
+        displayTime = activeTimeMs + (performance.now() - timerStartedAt);
+      } else {
+        displayTime = activeTimeMs;
+      }
+
+      if (spanRef.current) {
+        spanRef.current.textContent = formatTime(displayTime);
+      }
+
+      rafId = requestAnimationFrame(tick);
     }
 
-    const interval = setInterval(() => {
-      if (timerStartedAt !== null) {
-        setDisplayTime(activeTimeMs + (performance.now() - timerStartedAt));
-      }
-    }, 10); // Update every 10ms for smooth display
-
-    return () => clearInterval(interval);
-  }, [timerRunning, activeTimeMs, timerStartedAt]);
-
-  const formatTime = (ms: number): string => {
-    const totalSeconds = Math.floor(ms / 1000);
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-    const milliseconds = Math.floor((ms % 1000) / 10);
-
-    return `${minutes.toString().padStart(2, "0")}:${seconds
-      .toString()
-      .padStart(2, "0")}.${milliseconds.toString().padStart(2, "0")}`;
-  };
+    rafId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafId);
+  }, []);
 
   return (
-    <div className="font-mono text-4xl sm:text-5xl font-bold tabular-nums tracking-tight text-foreground">
-      {formatTime(displayTime)}
-    </div>
+    <span
+      ref={spanRef}
+      className="font-mono text-4xl sm:text-5xl font-bold tabular-nums tracking-tight text-foreground"
+    >
+      {formatTime(0)}
+    </span>
   );
 }
