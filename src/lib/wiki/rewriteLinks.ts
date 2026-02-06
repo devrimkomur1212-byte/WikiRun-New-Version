@@ -43,9 +43,7 @@ export function rewriteWikiLinks(html: string, runId: string): {
         // Disable these links
         link.setAttribute("href", "#");
         link.setAttribute("onclick", "return false;");
-        (link as HTMLElement).style.opacity = "0.5";
-        (link as HTMLElement).style.cursor = "not-allowed";
-        (link as HTMLElement).style.textDecoration = "line-through";
+        (link as HTMLElement).classList.add("wiki-disabled-link");
         return;
       }
 
@@ -69,15 +67,14 @@ export function rewriteWikiLinks(html: string, runId: string): {
     );
     externalLinks.forEach((link) => {
       link.setAttribute("onclick", "return false;");
-      (link as HTMLElement).style.opacity = "0.5";
-      (link as HTMLElement).style.cursor = "not-allowed";
+      (link as HTMLElement).classList.add("wiki-external-link");
     });
 
     // Remove citation links (they point to footnotes which don't work in our context)
     const citationLinks = container.querySelectorAll('a[href^="#cite_"]');
     citationLinks.forEach((link) => {
       link.setAttribute("onclick", "return false;");
-      (link as HTMLElement).style.cursor = "default";
+      (link as HTMLElement).classList.add("wiki-citation-link");
     });
 
     // Remove edit links
@@ -91,7 +88,7 @@ export function rewriteWikiLinks(html: string, runId: string): {
     elementsToRemove.forEach((el) => {
       // Keep infoboxes but style them differently
       if (el.classList.contains("infobox")) {
-        (el as HTMLElement).style.maxWidth = "300px";
+        (el as HTMLElement).classList.add("wiki-infobox");
         return;
       }
       el.remove();

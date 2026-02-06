@@ -3,6 +3,7 @@
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { evaluateAchievements } from "@/lib/achievements/evaluator";
+import { calculateEloChange } from "@/lib/elo/ranks";
 import type { Database } from "@/types/database.types";
 
 type RunRow = Database["public"]["Tables"]["runs"]["Row"];
@@ -287,18 +288,6 @@ async function resolveMatch(matchId: string) {
   // Evaluate achievements for both players
   await evaluateAchievements(match.player1_id);
   await evaluateAchievements(match.player2_id);
-}
-
-function calculateEloChange(
-  rating1: number,
-  rating2: number,
-  score: number,
-  k: number = 32
-): { delta1: number; delta2: number } {
-  const expected1 = 1 / (1 + Math.pow(10, (rating2 - rating1) / 400));
-  const delta1 = Math.round(k * (score - expected1));
-  const delta2 = -delta1;
-  return { delta1, delta2 };
 }
 
 /**

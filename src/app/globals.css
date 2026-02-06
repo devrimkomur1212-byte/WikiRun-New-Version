@@ -151,3 +151,23 @@
 .wiki-content .noprint {
   @apply hidden;
 }
+
+/* Disabled link styles (batched for performance) */
+.wiki-disabled-link {
+  opacity: 0.5;
+  cursor: not-allowed;
+  text-decoration: line-through;
+}
+
+.wiki-external-link {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.wiki-citation-link {
+  cursor: default;
+}
+
+.wiki-infobox {
+  max-width: 300px;
+}

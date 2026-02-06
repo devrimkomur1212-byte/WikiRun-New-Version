@@ -7,6 +7,17 @@ import { rewriteWikiLinks } from "@/lib/wiki/rewriteLinks";
 import { submitRun } from "@/app/actions/submitRun";
 import DOMPurify from "dompurify";
 
+// Configure DOMPurify to add lazy loading to images (performance optimization)
+// This runs once at module load to add the hook
+if (typeof window !== "undefined") {
+  DOMPurify.addHook("afterSanitizeElements", (node) => {
+    if (node.nodeName === "IMG") {
+      (node as Element).setAttribute("loading", "lazy");
+      (node as Element).setAttribute("decoding", "async");
+    }
+  });
+}
+
 interface ArticleViewProps {
   runId: string;
   isClientSideRun: boolean;

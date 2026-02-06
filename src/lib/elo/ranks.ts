@@ -60,6 +60,7 @@ export function getRankName(elo: number, leaderboardPosition?: number): Rank {
 
 /**
  * Calculate ELO change for a match
+ * Uses chess.com style minimum: at least ±8 for decisive games
  */
 export function calculateEloChange(
   rating1: number,
@@ -68,7 +69,18 @@ export function calculateEloChange(
   k: number = 32
 ): { delta1: number; delta2: number } {
   const expected1 = 1 / (1 + Math.pow(10, (rating2 - rating1) / 400));
-  const delta1 = Math.round(k * (score - expected1));
+  let delta1 = Math.round(k * (score - expected1));
+
+  // Chess.com style minimum: ensure at least ±8 for decisive games
+  const MIN_ELO_CHANGE = 8;
+  if (score === 1 && delta1 < MIN_ELO_CHANGE) {
+    delta1 = MIN_ELO_CHANGE; // Winner gets at least +8
+  } else if (score === 0 && delta1 > -MIN_ELO_CHANGE) {
+    delta1 = -MIN_ELO_CHANGE; // Loser loses at least -8
+  }
+  // Draws (score === 0.5) can still result in 0 change
+  // Upsets naturally give higher values (no max cap needed)
+
   const delta2 = -delta1;
   return { delta1, delta2 };
 }
