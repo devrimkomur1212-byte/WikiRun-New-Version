@@ -74,7 +74,7 @@ export default function Home() {
             </div>
             <h3 className="text-lg font-semibold mb-2">ELO Rankings</h3>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              Climb from Bronze to Elder. Top 50 players earn the prestigious Elder rank.
+              Climb from Bronze to Wizard. Compete and climb the ELO ranks.
             </p>
           </div>
 

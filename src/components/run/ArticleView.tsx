@@ -126,6 +126,9 @@ export function ArticleView({
   }, [isTargetReached, isCompleted]);
 
   const handleRunComplete = async () => {
+    // Guard: prevent double-submission if auto-end and target-reached fire simultaneously
+    if (useRunStore.getState().isCompleted) return;
+
     const runData = completeRun();
 
     if (isClientSideRun) {

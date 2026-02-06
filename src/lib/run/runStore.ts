@@ -323,6 +323,17 @@ export const useRunStore = create<RunState>((set, get) => ({
   completeRun: () => {
     const state = get();
 
+    // Idempotency guard: if already completed, return cached data
+    if (state.isCompleted) {
+      return {
+        activeTimeMs: state.activeTimeMs,
+        clicksCount: state.clicksCount,
+        missesCount: state.missesCount,
+        routeTitles: state.routeTitles,
+        steps: state.steps,
+      };
+    }
+
     // Ensure timer is stopped
     let finalActiveTime = state.activeTimeMs;
     if (state.timerRunning && state.timerStartedAt !== null) {

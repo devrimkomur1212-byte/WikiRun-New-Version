@@ -197,7 +197,7 @@ export default function PlayPage() {
             </p>
             <p className="text-muted-foreground leading-relaxed">
               Get there first, gain ELO. Get there second, lose it. Simple as that.
-              Reach the top 50 and you earn Elder &mdash; the only rank that actually means something.
+              Reach 2000+ ELO and you earn Wizard &mdash; the only rank that actually means something.
             </p>
           </div>
         </div>
@@ -219,10 +219,6 @@ export default function PlayPage() {
                   </span>
                 </div>
               ))}
-              <div className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-primary/10">
-                <span className="font-medium text-primary">Elder</span>
-                <span className="text-sm text-muted-foreground">Top 50</span>
-              </div>
             </div>
           </div>
 

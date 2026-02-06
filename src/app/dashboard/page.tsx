@@ -100,7 +100,7 @@ export default async function DashboardPage() {
           <div className="group rounded-2xl border border-border/40 bg-card p-6 shadow-soft hover:shadow-soft-lg hover:translate-y-[-2px] transition-all duration-300 animate-slide-up" style={{ animationDelay: '500ms' }}>
             <h3 className="text-lg font-semibold mb-2">View Leaderboard</h3>
             <p className="text-muted-foreground mb-4 leading-relaxed">
-              See the top players and their ELO ratings. Can you reach Elder rank?
+              See the top players and their ELO ratings. Can you reach Wizard rank?
             </p>
             <Link
               href="/leaderboard"

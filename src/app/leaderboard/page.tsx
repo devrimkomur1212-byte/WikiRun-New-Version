@@ -30,7 +30,7 @@ export default async function LeaderboardPage() {
       <div className="text-center max-w-2xl mx-auto animate-fade-in">
         <h1 className="text-display-sm mb-4">Leaderboard</h1>
         <p className="text-lg text-muted-foreground leading-relaxed">
-          Top 50 players earn the prestigious Elder rank. Climb the ranks by winning
+          Reach 2000+ ELO to earn the prestigious Wizard rank. Climb the ranks by winning
           ranked matches!
         </p>
       </div>
