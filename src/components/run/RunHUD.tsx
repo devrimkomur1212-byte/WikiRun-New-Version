@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useRunStore } from "@/lib/run/runStore";
+import { useRunStore, selectCurrentTime } from "@/lib/run/runStore";
 import { Timer } from "./Timer";
 import { giveUpRankedRun } from "@/app/actions/submitRun";
 
@@ -44,7 +44,10 @@ export function RunHUD() {
 
     setIsGivingUp(true);
     try {
-      await giveUpRankedRun(runId);
+      // Get the current elapsed time before forfeiting
+      // This ensures accurate time comparison if both players forfeit
+      const currentTime = selectCurrentTime(useRunStore.getState());
+      await giveUpRankedRun(runId, currentTime);
       completeRun();
       router.push(`/results/${runId}`);
     } catch (error) {

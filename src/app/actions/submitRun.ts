@@ -292,10 +292,10 @@ async function resolveMatch(matchId: string) {
 
 /**
  * Give up a ranked run - results in automatic loss unless opponent also gave up
+ * If both forfeit, the player with lower time wins (they were ahead in the race)
  */
-export async function giveUpRankedRun(runId: string) {
+export async function giveUpRankedRun(runId: string, activeTimeMs: number) {
   const supabase = await createClient();
-  const serviceSupabase = await createServiceClient();
 
   const {
     data: { user },
@@ -328,12 +328,13 @@ export async function giveUpRankedRun(runId: string) {
   }
 
   // Mark the run as completed with gave_up flag
+  // Store actual elapsed time so we can compare if both players forfeit
   const { error: updateError } = await supabase
     .from("runs")
     .update({
       is_completed: true,
       gave_up: true,
-      active_time_ms: 0, // Set to 0 to indicate gave up
+      active_time_ms: Math.max(0, Math.round(activeTimeMs)),
       clicks_count: run.route_titles?.length ? (run.route_titles as string[]).length - 1 : 0,
     } as never)
     .eq("id", runId)
@@ -437,8 +438,13 @@ async function resolveMatchWithGiveUp(matchId: string) {
   const p2GaveUp = player2Run.gave_up === true;
 
   if (p1GaveUp && p2GaveUp) {
-    // Both gave up - it's a draw
-    winnerId = null;
+    // Both gave up - whoever had lower time was ahead in the race, so they win
+    if (player1Run.active_time_ms < player2Run.active_time_ms) {
+      winnerId = match.player1_id;
+    } else if (player2Run.active_time_ms < player1Run.active_time_ms) {
+      winnerId = match.player2_id;
+    }
+    // If equal times, winnerId stays null (draw)
   } else if (p1GaveUp) {
     // Player 1 gave up - Player 2 wins
     winnerId = match.player2_id;

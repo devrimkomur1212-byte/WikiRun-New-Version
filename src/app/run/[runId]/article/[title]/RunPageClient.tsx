@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useRunStore } from "@/lib/run/runStore";
 import { RunHUD } from "@/components/run/RunHUD";
 import { ArticleView } from "@/components/run/ArticleView";
+import { OpponentStatus } from "@/components/run/OpponentStatus";
 
 interface RunPageClientProps {
   runId: string;
@@ -86,6 +87,7 @@ export function RunPageClient({
         isClientSideRun={isClientSideRun}
         initialTitle={initialTitle}
       />
+      <OpponentStatus />
     </div>
   );
 }
