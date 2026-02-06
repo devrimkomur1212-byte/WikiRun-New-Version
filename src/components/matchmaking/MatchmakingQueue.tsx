@@ -152,15 +152,23 @@ export function MatchmakingQueue({
     if (state.status !== "matched" && state.status !== "countdown") return;
 
     // Get the start time and route info
-    const startTime = state.status === "matched" ? state.startTime : null;
+    const serverStartTime = state.status === "matched" ? state.startTime : null;
     const runId = state.runId;
     const startTitle = state.route.startTitle;
 
     // If we don't have start time info, we can't countdown
-    if (!startTime && state.status === "matched") return;
+    if (!serverStartTime && state.status === "matched") return;
 
-    // Calculate target time
-    const startTimeMs = startTime ? new Date(startTime).getTime() : Date.now();
+    // Calculate target time - ensure at least 3 seconds of countdown
+    const serverStartTimeMs = serverStartTime ? new Date(serverStartTime).getTime() : Date.now();
+    const now = Date.now();
+    const minCountdownMs = 3000; // Minimum 3 seconds countdown
+
+    // If server time has mostly elapsed, give a fresh 3 second countdown
+    const remainingFromServer = serverStartTimeMs - now;
+    const startTimeMs = remainingFromServer < minCountdownMs
+      ? now + minCountdownMs
+      : serverStartTimeMs;
 
     const updateCountdown = () => {
       const remaining = startTimeMs - Date.now();

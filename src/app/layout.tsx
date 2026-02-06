@@ -20,6 +20,13 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "WikiRun - Wikipedia Speedrun Game",
   description: "Race through Wikipedia articles. Compete in ranked matches or practice in training mode.",
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/favicon.png", type: "image/png" },
+    ],
+    apple: "/favicon.png",
+  },
 };
 
 export default function RootLayout({
