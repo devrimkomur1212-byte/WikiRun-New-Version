@@ -47,26 +47,60 @@ function getRangeStart(range: DateRange): Date | null {
   }
 }
 
-// Catmull-Rom to cubic bezier conversion for smooth curves
-function catmullRomToBezier(pts: { x: number; y: number }[]): string {
+// Monotone cubic interpolation — smooth curves that never overshoot between points
+function monotoneCubicPath(pts: { x: number; y: number }[]): string {
   if (pts.length < 2) return "";
   if (pts.length === 2) return `M ${pts[0].x},${pts[0].y} L ${pts[1].x},${pts[1].y}`;
 
-  const tension = 0.3;
+  const n = pts.length;
+
+  // Compute slopes (delta) between consecutive points
+  const dx: number[] = [];
+  const dy: number[] = [];
+  const m: number[] = [];
+  for (let i = 0; i < n - 1; i++) {
+    dx.push(pts[i + 1].x - pts[i].x);
+    dy.push(pts[i + 1].y - pts[i].y);
+    m.push(dy[i] / (dx[i] || 1));
+  }
+
+  // Compute tangent slopes using Fritsch-Carlson method (monotone-preserving)
+  const tangents: number[] = [m[0]];
+  for (let i = 1; i < n - 1; i++) {
+    if (m[i - 1] * m[i] <= 0) {
+      tangents.push(0);
+    } else {
+      tangents.push((m[i - 1] + m[i]) / 2);
+    }
+  }
+  tangents.push(m[n - 2]);
+
+  // Clamp tangents to ensure monotonicity
+  for (let i = 0; i < n - 1; i++) {
+    if (Math.abs(m[i]) < 1e-6) {
+      tangents[i] = 0;
+      tangents[i + 1] = 0;
+    } else {
+      const a = tangents[i] / m[i];
+      const b = tangents[i + 1] / m[i];
+      const s = a * a + b * b;
+      if (s > 9) {
+        const t = 3 / Math.sqrt(s);
+        tangents[i] = t * a * m[i];
+        tangents[i + 1] = t * b * m[i];
+      }
+    }
+  }
+
+  // Build cubic bezier path
   let d = `M ${pts[0].x},${pts[0].y}`;
-
-  for (let i = 0; i < pts.length - 1; i++) {
-    const p0 = pts[Math.max(0, i - 1)];
-    const p1 = pts[i];
-    const p2 = pts[i + 1];
-    const p3 = pts[Math.min(pts.length - 1, i + 2)];
-
-    const cp1x = p1.x + (p2.x - p0.x) * tension;
-    const cp1y = p1.y + (p2.y - p0.y) * tension;
-    const cp2x = p2.x - (p3.x - p1.x) * tension;
-    const cp2y = p2.y - (p3.y - p1.y) * tension;
-
-    d += ` C ${cp1x},${cp1y} ${cp2x},${cp2y} ${p2.x},${p2.y}`;
+  for (let i = 0; i < n - 1; i++) {
+    const seg = dx[i] / 3;
+    const cp1x = pts[i].x + seg;
+    const cp1y = pts[i].y + tangents[i] * seg;
+    const cp2x = pts[i + 1].x - seg;
+    const cp2y = pts[i + 1].y - tangents[i + 1] * seg;
+    d += ` C ${cp1x},${cp1y} ${cp2x},${cp2y} ${pts[i + 1].x},${pts[i + 1].y}`;
   }
 
   return d;
@@ -111,7 +145,7 @@ function EloChart({ points }: { points: { date: string; elo: number }[] }) {
       date: p.date,
     }));
 
-    const curvePath = catmullRomToBezier(pts);
+    const curvePath = monotoneCubicPath(pts);
     const areaPath = `${curvePath} L ${pts[pts.length - 1].x},${PAD.top + plotH} L ${pts[0].x},${PAD.top + plotH} Z`;
 
     // Y-axis labels
@@ -295,7 +329,7 @@ function EloChart({ points }: { points: { date: string; elo: number }[] }) {
 export function StatsPanel({ matches, userId, currentElo }: StatsPanelProps) {
   const [range, setRange] = useState<DateRange>("all");
 
-  // Build full ELO history (chronological)
+  // Build full ELO history aggregated by day (chronological)
   const eloHistory = useMemo(() => {
     const sorted = [...matches].sort(
       (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
@@ -307,14 +341,20 @@ export function StatsPanel({ matches, userId, currentElo }: StatsPanelProps) {
       startElo -= getMyDelta(m, userId);
     }
 
-    const history: { date: string; elo: number }[] = [
-      { date: sorted[0]?.created_at || new Date().toISOString(), elo: startElo },
-    ];
-
+    // Group matches by day and compute final ELO for each day
+    const dayMap = new Map<string, number>();
     let running = startElo;
+
     for (const m of sorted) {
       running += getMyDelta(m, userId);
-      history.push({ date: m.created_at, elo: running });
+      const dayKey = new Date(m.created_at).toISOString().split('T')[0]; // YYYY-MM-DD
+      dayMap.set(dayKey, running); // Last match of the day wins
+    }
+
+    // Convert to array of points
+    const history: { date: string; elo: number }[] = [];
+    for (const [day, elo] of dayMap) {
+      history.push({ date: `${day}T12:00:00Z`, elo }); // Use noon to center points
     }
 
     return history;
@@ -328,30 +368,25 @@ export function StatsPanel({ matches, userId, currentElo }: StatsPanelProps) {
     return matches.filter((m) => new Date(m.created_at) >= rangeStart);
   }, [matches, rangeStart]);
 
-  // Chart data points for the selected range
+  // Chart data points for the selected range (aggregated by day)
   const chartPoints = useMemo(() => {
     if (!rangeStart) return eloHistory;
 
-    // ELO at the start of the range = current - sum of deltas after range start
-    let eloAtStart = currentElo;
-    for (const m of matches) {
-      if (new Date(m.created_at) >= rangeStart) {
-        eloAtStart -= getMyDelta(m, userId);
+    // Filter history points to the selected range
+    const pointsInRange = eloHistory.filter((h) => new Date(h.date) >= rangeStart);
+
+    // If no points in range, calculate starting ELO for the range
+    if (pointsInRange.length === 0) {
+      let eloAtStart = currentElo;
+      for (const m of matches) {
+        if (new Date(m.created_at) >= rangeStart) {
+          eloAtStart -= getMyDelta(m, userId);
+        }
       }
+      return [{ date: rangeStart.toISOString(), elo: eloAtStart }];
     }
 
-    const points: { date: string; elo: number }[] = [
-      { date: rangeStart.toISOString(), elo: eloAtStart },
-    ];
-
-    // Add all history points within the range
-    for (const h of eloHistory) {
-      if (new Date(h.date) >= rangeStart) {
-        points.push(h);
-      }
-    }
-
-    return points;
+    return pointsInRange;
   }, [eloHistory, matches, rangeStart, currentElo, userId]);
 
   // Computed stats
