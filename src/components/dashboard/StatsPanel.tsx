@@ -127,7 +127,10 @@ function EloChart({ points }: { points: { date: string; elo: number }[] }) {
     const minElo = Math.min(...elos);
     const maxElo = Math.max(...elos);
     const eloRange = maxElo - minElo || 50;
-    const eloMargin = eloRange * 0.15;
+    // Wider Y-axis range for smoother curve appearance (minimum 300pt range)
+    const minRangeWidth = 300;
+    const targetRange = Math.max(eloRange, minRangeWidth);
+    const eloMargin = (targetRange - eloRange) / 2 + targetRange * 0.15;
 
     const times = points.map((p) => new Date(p.date).getTime());
     const minTime = times[0];
@@ -329,7 +332,7 @@ function EloChart({ points }: { points: { date: string; elo: number }[] }) {
 export function StatsPanel({ matches, userId, currentElo }: StatsPanelProps) {
   const [range, setRange] = useState<DateRange>("all");
 
-  // Build full ELO history aggregated by day (chronological)
+  // Build full ELO history (chronological, one point per match)
   const eloHistory = useMemo(() => {
     const sorted = [...matches].sort(
       (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
@@ -341,20 +344,14 @@ export function StatsPanel({ matches, userId, currentElo }: StatsPanelProps) {
       startElo -= getMyDelta(m, userId);
     }
 
-    // Group matches by day and compute final ELO for each day
-    const dayMap = new Map<string, number>();
-    let running = startElo;
+    const history: { date: string; elo: number }[] = [
+      { date: sorted[0]?.created_at || new Date().toISOString(), elo: startElo },
+    ];
 
+    let running = startElo;
     for (const m of sorted) {
       running += getMyDelta(m, userId);
-      const dayKey = new Date(m.created_at).toISOString().split('T')[0]; // YYYY-MM-DD
-      dayMap.set(dayKey, running); // Last match of the day wins
-    }
-
-    // Convert to array of points
-    const history: { date: string; elo: number }[] = [];
-    for (const [day, elo] of dayMap) {
-      history.push({ date: `${day}T12:00:00Z`, elo }); // Use noon to center points
+      history.push({ date: m.created_at, elo: running });
     }
 
     return history;
@@ -368,25 +365,30 @@ export function StatsPanel({ matches, userId, currentElo }: StatsPanelProps) {
     return matches.filter((m) => new Date(m.created_at) >= rangeStart);
   }, [matches, rangeStart]);
 
-  // Chart data points for the selected range (aggregated by day)
+  // Chart data points for the selected range
   const chartPoints = useMemo(() => {
     if (!rangeStart) return eloHistory;
 
-    // Filter history points to the selected range
-    const pointsInRange = eloHistory.filter((h) => new Date(h.date) >= rangeStart);
-
-    // If no points in range, calculate starting ELO for the range
-    if (pointsInRange.length === 0) {
-      let eloAtStart = currentElo;
-      for (const m of matches) {
-        if (new Date(m.created_at) >= rangeStart) {
-          eloAtStart -= getMyDelta(m, userId);
-        }
+    // ELO at the start of the range = current - sum of deltas after range start
+    let eloAtStart = currentElo;
+    for (const m of matches) {
+      if (new Date(m.created_at) >= rangeStart) {
+        eloAtStart -= getMyDelta(m, userId);
       }
-      return [{ date: rangeStart.toISOString(), elo: eloAtStart }];
     }
 
-    return pointsInRange;
+    const points: { date: string; elo: number }[] = [
+      { date: rangeStart.toISOString(), elo: eloAtStart },
+    ];
+
+    // Add all history points within the range
+    for (const h of eloHistory) {
+      if (new Date(h.date) >= rangeStart) {
+        points.push(h);
+      }
+    }
+
+    return points;
   }, [eloHistory, matches, rangeStart, currentElo, userId]);
 
   // Computed stats
