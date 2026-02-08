@@ -215,6 +215,11 @@ async function resolveMatch(matchId: string) {
     return;
   }
 
+  // Both runs must actually be completed (not just exist from matchmaking)
+  if (!player1Run.is_completed || !player2Run.is_completed) {
+    return;
+  }
+
   // Determine winner (handles forfeits, time, clicks, misses)
   let winnerId: string | null = null;
   const p1GaveUp = player1Run.gave_up === true;
