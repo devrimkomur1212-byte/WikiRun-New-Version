@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useRef, useCallback, useMemo } from "react";
 
 interface Match {
   id: string;
@@ -34,10 +34,6 @@ function getMyDelta(match: Match, userId: string): number {
   return 0;
 }
 
-function getOpponentId(match: Match, userId: string): string {
-  return match.player1_id === userId ? match.player2_id : match.player1_id;
-}
-
 function getRangeStart(range: DateRange): Date | null {
   if (range === "all") return null;
   const now = new Date();
@@ -51,16 +47,38 @@ function getRangeStart(range: DateRange): Date | null {
   }
 }
 
+// Catmull-Rom to cubic bezier conversion for smooth curves
+function catmullRomToBezier(pts: { x: number; y: number }[]): string {
+  if (pts.length < 2) return "";
+  if (pts.length === 2) return `M ${pts[0].x},${pts[0].y} L ${pts[1].x},${pts[1].y}`;
+
+  const tension = 0.3;
+  let d = `M ${pts[0].x},${pts[0].y}`;
+
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[Math.max(0, i - 1)];
+    const p1 = pts[i];
+    const p2 = pts[i + 1];
+    const p3 = pts[Math.min(pts.length - 1, i + 2)];
+
+    const cp1x = p1.x + (p2.x - p0.x) * tension;
+    const cp1y = p1.y + (p2.y - p0.y) * tension;
+    const cp2x = p2.x - (p3.x - p1.x) * tension;
+    const cp2y = p2.y - (p3.y - p1.y) * tension;
+
+    d += ` C ${cp1x},${cp1y} ${cp2x},${cp2y} ${p2.x},${p2.y}`;
+  }
+
+  return d;
+}
+
 // ─── SVG Chart ───────────────────────────────────────────────
 
 function EloChart({ points }: { points: { date: string; elo: number }[] }) {
-  if (points.length < 2) {
-    return (
-      <div className="h-44 flex items-center justify-center text-muted-foreground text-sm">
-        Not enough data to show chart
-      </div>
-    );
-  }
+  const svgRef = useRef<SVGSVGElement>(null);
+  const [hover, setHover] = useState<{ x: number; y: number; elo: number; date: string } | null>(
+    null
+  );
 
   const W = 800;
   const H = 200;
@@ -68,44 +86,94 @@ function EloChart({ points }: { points: { date: string; elo: number }[] }) {
   const plotW = W - PAD.left - PAD.right;
   const plotH = H - PAD.top - PAD.bottom;
 
-  const elos = points.map((p) => p.elo);
-  const minElo = Math.min(...elos);
-  const maxElo = Math.max(...elos);
-  const eloRange = maxElo - minElo || 50;
-  const eloMargin = eloRange * 0.15;
+  const chartData = useMemo(() => {
+    if (points.length < 2) return null;
 
-  const times = points.map((p) => new Date(p.date).getTime());
-  const minTime = times[0];
-  const maxTime = times[times.length - 1];
-  const timeRange = maxTime - minTime || 1;
+    const elos = points.map((p) => p.elo);
+    const minElo = Math.min(...elos);
+    const maxElo = Math.max(...elos);
+    const eloRange = maxElo - minElo || 50;
+    const eloMargin = eloRange * 0.15;
 
-  const x = (t: number) => PAD.left + ((t - minTime) / timeRange) * plotW;
-  const y = (e: number) =>
-    PAD.top + plotH - ((e - minElo + eloMargin) / (eloRange + eloMargin * 2)) * plotH;
+    const times = points.map((p) => new Date(p.date).getTime());
+    const minTime = times[0];
+    const maxTime = times[times.length - 1];
+    const timeRange = maxTime - minTime || 1;
 
-  // Build smooth line path
-  const pts = points.map((p) => ({
-    x: x(new Date(p.date).getTime()),
-    y: y(p.elo),
-  }));
+    const xScale = (t: number) => PAD.left + ((t - minTime) / timeRange) * plotW;
+    const yScale = (e: number) =>
+      PAD.top + plotH - ((e - minElo + eloMargin) / (eloRange + eloMargin * 2)) * plotH;
 
-  const linePath = pts.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x},${p.y}`).join(" ");
-  const areaPath = `${linePath} L ${pts[pts.length - 1].x},${PAD.top + plotH} L ${pts[0].x},${PAD.top + plotH} Z`;
+    const pts = points.map((p) => ({
+      x: xScale(new Date(p.date).getTime()),
+      y: yScale(p.elo),
+      elo: p.elo,
+      date: p.date,
+    }));
 
-  // Y-axis labels
-  const niceStep = Math.max(25, Math.ceil(eloRange / 4 / 25) * 25);
-  const niceMin = Math.floor(minElo / niceStep) * niceStep;
-  const niceMax = Math.ceil(maxElo / niceStep) * niceStep;
-  const yLabels: number[] = [];
-  for (let v = niceMin; v <= niceMax; v += niceStep) {
-    yLabels.push(v);
+    const curvePath = catmullRomToBezier(pts);
+    const areaPath = `${curvePath} L ${pts[pts.length - 1].x},${PAD.top + plotH} L ${pts[0].x},${PAD.top + plotH} Z`;
+
+    // Y-axis labels
+    const niceStep = Math.max(25, Math.ceil(eloRange / 4 / 25) * 25);
+    const niceMin = Math.floor(minElo / niceStep) * niceStep;
+    const niceMax = Math.ceil(maxElo / niceStep) * niceStep;
+    const yLabels: number[] = [];
+    for (let v = niceMin; v <= niceMax; v += niceStep) {
+      yLabels.push(v);
+    }
+
+    return { pts, curvePath, areaPath, yLabels, yScale, xScale, minTime, timeRange };
+  }, [points, plotW, plotH]);
+
+  const handleMouseMove = useCallback(
+    (e: React.MouseEvent<SVGSVGElement>) => {
+      if (!chartData || !svgRef.current) return;
+      const svg = svgRef.current;
+      const rect = svg.getBoundingClientRect();
+      const mouseX = ((e.clientX - rect.left) / rect.width) * W;
+
+      // Find closest point
+      let closest = chartData.pts[0];
+      let closestDist = Infinity;
+      for (const pt of chartData.pts) {
+        const dist = Math.abs(pt.x - mouseX);
+        if (dist < closestDist) {
+          closestDist = dist;
+          closest = pt;
+        }
+      }
+
+      setHover({ x: closest.x, y: closest.y, elo: closest.elo, date: closest.date });
+    },
+    [chartData]
+  );
+
+  const handleMouseLeave = useCallback(() => setHover(null), []);
+
+  if (!chartData) {
+    return (
+      <div className="h-44 flex items-center justify-center text-muted-foreground text-sm">
+        Not enough data to show chart
+      </div>
+    );
   }
+
+  const { pts, curvePath, areaPath, yLabels, yScale } = chartData;
+
+  const formatDate = (iso: string) => {
+    const d = new Date(iso);
+    return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  };
 
   return (
     <svg
+      ref={svgRef}
       viewBox={`0 0 ${W} ${H}`}
-      className="w-full h-auto"
+      className="w-full h-auto cursor-crosshair"
       preserveAspectRatio="xMidYMid meet"
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
     >
       <defs>
         <linearGradient id="elo-area-grad" x1="0" y1="0" x2="0" y2="1">
@@ -119,16 +187,16 @@ function EloChart({ points }: { points: { date: string; elo: number }[] }) {
         <g key={v}>
           <line
             x1={PAD.left}
-            y1={y(v)}
+            y1={yScale(v)}
             x2={W - PAD.right}
-            y2={y(v)}
+            y2={yScale(v)}
             stroke="hsl(var(--border))"
             strokeOpacity="0.4"
             strokeDasharray="4 4"
           />
           <text
             x={PAD.left - 8}
-            y={y(v) + 4}
+            y={yScale(v) + 4}
             textAnchor="end"
             fontSize="11"
             fill="hsl(var(--muted-foreground))"
@@ -141,9 +209,9 @@ function EloChart({ points }: { points: { date: string; elo: number }[] }) {
       {/* Area fill */}
       <path d={areaPath} fill="url(#elo-area-grad)" />
 
-      {/* Line */}
+      {/* Smooth curve line */}
       <path
-        d={linePath}
+        d={curvePath}
         fill="none"
         stroke="hsl(var(--primary))"
         strokeWidth="2.5"
@@ -165,13 +233,66 @@ function EloChart({ points }: { points: { date: string; elo: number }[] }) {
         fill="hsl(var(--primary))"
         opacity="0.2"
       />
+
+      {/* Hover elements */}
+      {hover && (
+        <>
+          {/* Vertical line */}
+          <line
+            x1={hover.x}
+            y1={PAD.top}
+            x2={hover.x}
+            y2={PAD.top + plotH}
+            stroke="hsl(var(--muted-foreground))"
+            strokeOpacity="0.5"
+            strokeWidth="1"
+            strokeDasharray="3 3"
+          />
+          {/* Dot */}
+          <circle cx={hover.x} cy={hover.y} r="5" fill="hsl(var(--primary))" />
+          <circle cx={hover.x} cy={hover.y} r="9" fill="hsl(var(--primary))" opacity="0.2" />
+
+          {/* Tooltip background */}
+          <rect
+            x={Math.min(hover.x - 45, W - PAD.right - 90)}
+            y={Math.max(hover.y - 48, PAD.top)}
+            width="90"
+            height="36"
+            rx="8"
+            fill="hsl(var(--card))"
+            stroke="hsl(var(--border))"
+            strokeWidth="1"
+          />
+          {/* Tooltip text - ELO */}
+          <text
+            x={Math.min(hover.x, W - PAD.right - 45)}
+            y={Math.max(hover.y - 30, PAD.top + 18) - 1}
+            textAnchor="middle"
+            fontSize="13"
+            fontWeight="700"
+            fill="hsl(var(--foreground))"
+          >
+            {hover.elo}
+          </text>
+          {/* Tooltip text - Date */}
+          <text
+            x={Math.min(hover.x, W - PAD.right - 45)}
+            y={Math.max(hover.y - 30, PAD.top + 18) + 13}
+            textAnchor="middle"
+            fontSize="10"
+            fill="hsl(var(--muted-foreground))"
+          >
+            {formatDate(hover.date)}
+          </text>
+        </>
+      )}
     </svg>
   );
 }
 
 // ─── Main Component ──────────────────────────────────────────
 
-export function StatsPanel({ matches, userId, currentElo, opponentNames }: StatsPanelProps) {
+export function StatsPanel({ matches, userId, currentElo }: StatsPanelProps) {
   const [range, setRange] = useState<DateRange>("all");
 
   // Build full ELO history (chronological)
@@ -250,19 +371,6 @@ export function StatsPanel({ matches, userId, currentElo, opponentNames }: Stats
     const highestRating =
       chartPoints.length > 0 ? Math.max(...chartPoints.map((p) => p.elo)) : currentElo;
 
-    // Best win (biggest ELO gained in a single match when winning)
-    let bestWinDelta = 0;
-    let bestWinOpponentId: string | null = null;
-    for (const m of filteredMatches) {
-      if (m.winner_id === userId) {
-        const delta = getMyDelta(m, userId);
-        if (delta > bestWinDelta) {
-          bestWinDelta = delta;
-          bestWinOpponentId = getOpponentId(m, userId);
-        }
-      }
-    }
-
     // Best win streak
     const sorted = [...filteredMatches].sort(
       (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
@@ -286,13 +394,9 @@ export function StatsPanel({ matches, userId, currentElo, opponentNames }: Stats
       lossPct,
       ratingChange,
       highestRating,
-      bestWinDelta,
-      bestWinOpponentName: bestWinOpponentId
-        ? opponentNames[bestWinOpponentId] || "Unknown"
-        : null,
       bestStreak,
     };
-  }, [filteredMatches, chartPoints, currentElo, userId, opponentNames]);
+  }, [filteredMatches, chartPoints, currentElo, userId]);
 
   if (matches.length === 0) {
     return null;
@@ -330,7 +434,7 @@ export function StatsPanel({ matches, userId, currentElo, opponentNames }: Stats
       </div>
 
       {/* Stats Row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+      <div className="grid grid-cols-3 gap-3 mb-6">
         {/* Rating + Change */}
         <div className="rounded-xl bg-secondary/40 p-4">
           <div className="text-xs text-muted-foreground mb-1">Rating</div>
@@ -354,23 +458,6 @@ export function StatsPanel({ matches, userId, currentElo, opponentNames }: Stats
         <div className="rounded-xl bg-secondary/40 p-4">
           <div className="text-xs text-muted-foreground mb-1">Highest Rating</div>
           <div className="text-2xl font-bold tracking-tight">{stats.highestRating}</div>
-        </div>
-
-        {/* Best Win */}
-        <div className="rounded-xl bg-secondary/40 p-4">
-          <div className="text-xs text-muted-foreground mb-1">Best Win</div>
-          {stats.bestWinDelta > 0 ? (
-            <>
-              <div className="text-2xl font-bold tracking-tight text-green-500">
-                +{stats.bestWinDelta}
-              </div>
-              <div className="text-xs text-muted-foreground mt-0.5 truncate">
-                vs {stats.bestWinOpponentName}
-              </div>
-            </>
-          ) : (
-            <div className="text-sm text-muted-foreground mt-2">No wins yet</div>
-          )}
         </div>
 
         {/* Win Streak */}
@@ -397,7 +484,7 @@ export function StatsPanel({ matches, userId, currentElo, opponentNames }: Stats
         </div>
       </div>
 
-      {/* Games W/D/L Bar */}
+      {/* Games W/L Bar */}
       <div>
         <div className="flex items-baseline justify-between mb-3">
           <span className="text-sm font-semibold">Games</span>

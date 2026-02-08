@@ -131,7 +131,16 @@ export function OpponentStatus() {
             </>
           ) : (
             <>
-              <div className="text-6xl">⏱️</div>
+              <div className="flex items-center justify-center">
+                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-destructive">
+                  <circle cx="12" cy="14" r="8" />
+                  <line x1="12" y1="14" x2="12" y2="10" />
+                  <line x1="12" y1="14" x2="15" y2="14" />
+                  <line x1="9" y1="2" x2="15" y2="2" />
+                  <line x1="12" y1="2" x2="12" y2="6" />
+                  <line x1="20" y1="8" x2="18" y2="10" />
+                </svg>
+              </div>
               <h2 className="text-3xl font-bold text-destructive">Time&apos;s Up!</h2>
               <p className="text-muted-foreground">
                 Opponent finished in <span className="font-mono font-semibold text-foreground">{formatTime(opponentTime || 0)}</span>
