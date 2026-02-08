@@ -300,7 +300,8 @@ function EloChart({ points }: { points: { date: string; elo: number }[] }) {
 export function StatsPanel({ matches, userId, currentElo }: StatsPanelProps) {
   const [range, setRange] = useState<DateRange>("all");
 
-  // Build full ELO history (chronological, one point per match)
+  // Build full ELO history aggregated by day (one point per day)
+  // Aggregating prevents clustered x-values that cause spline loops
   const eloHistory = useMemo(() => {
     const sorted = [...matches].sort(
       (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
@@ -312,14 +313,23 @@ export function StatsPanel({ matches, userId, currentElo }: StatsPanelProps) {
       startElo -= getMyDelta(m, userId);
     }
 
-    const history: { date: string; elo: number }[] = [
-      { date: sorted[0]?.created_at || new Date().toISOString(), elo: startElo },
-    ];
-
+    // Walk through matches and group by day
+    const dayMap = new Map<string, number>();
     let running = startElo;
+    const firstDay = sorted[0]
+      ? new Date(sorted[0].created_at).toISOString().split("T")[0]
+      : new Date().toISOString().split("T")[0];
+    dayMap.set(firstDay, startElo);
+
     for (const m of sorted) {
       running += getMyDelta(m, userId);
-      history.push({ date: m.created_at, elo: running });
+      const day = new Date(m.created_at).toISOString().split("T")[0];
+      dayMap.set(day, running);
+    }
+
+    const history: { date: string; elo: number }[] = [];
+    for (const [day, elo] of dayMap) {
+      history.push({ date: day, elo });
     }
 
     return history;
@@ -337,26 +347,21 @@ export function StatsPanel({ matches, userId, currentElo }: StatsPanelProps) {
   const chartPoints = useMemo(() => {
     if (!rangeStart) return eloHistory;
 
-    // ELO at the start of the range = current - sum of deltas after range start
-    let eloAtStart = currentElo;
-    for (const m of matches) {
-      if (new Date(m.created_at) >= rangeStart) {
-        eloAtStart -= getMyDelta(m, userId);
+    const rangeDay = rangeStart.toISOString().split("T")[0];
+    const pointsInRange = eloHistory.filter((h) => h.date >= rangeDay);
+
+    if (pointsInRange.length === 0) {
+      // Compute ELO at start of range
+      let eloAtStart = currentElo;
+      for (const m of matches) {
+        if (new Date(m.created_at) >= rangeStart) {
+          eloAtStart -= getMyDelta(m, userId);
+        }
       }
+      return [{ date: rangeDay, elo: eloAtStart }];
     }
 
-    const points: { date: string; elo: number }[] = [
-      { date: rangeStart.toISOString(), elo: eloAtStart },
-    ];
-
-    // Add all history points within the range
-    for (const h of eloHistory) {
-      if (new Date(h.date) >= rangeStart) {
-        points.push(h);
-      }
-    }
-
-    return points;
+    return pointsInRange;
   }, [eloHistory, matches, rangeStart, currentElo, userId]);
 
   // Computed stats
