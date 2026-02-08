@@ -1,0 +1,22 @@
+# Allow all crawlers
+User-agent: *
+Allow: /
+
+# Disallow authentication pages
+Disallow: /api/
+Disallow: /reset-password
+Disallow: /forgot-password
+
+# Disallow user-specific run pages (dynamic)
+Disallow: /run/*/article/*
+Disallow: /results/training/*
+
+# Allow static pages
+Allow: /
+Allow: /play
+Allow: /training
+Allow: /leaderboard
+Allow: /dashboard
+
+# Sitemap
+Sitemap: https://wikirun.com/sitemap.xml

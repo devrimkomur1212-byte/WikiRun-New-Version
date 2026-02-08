@@ -4,6 +4,8 @@ import Script from "next/script";
 import "./globals.css";
 import { ThemeProvider } from "@/components/layout/ThemeProvider";
 import { Navbar } from "@/components/layout/Navbar";
+import { baseMetadata } from "@/lib/seo/metadata";
+import { organizationSchema, websiteSchema, gameSchema, generateStructuredData } from "@/lib/seo/structured-data";
 
 const plusJakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -17,17 +19,7 @@ const jetbrainsMono = JetBrains_Mono({
   display: "swap",
 });
 
-export const metadata: Metadata = {
-  title: "WikiRun - Wikipedia Speedrun Game",
-  description: "Race through Wikipedia articles. Compete in ranked matches or practice in training mode.",
-  icons: {
-    icon: [
-      { url: "/favicon.ico", sizes: "any" },
-      { url: "/favicon.png", type: "image/png" },
-    ],
-    apple: "/favicon.png",
-  },
-};
+export const metadata: Metadata = baseMetadata;
 
 export default function RootLayout({
   children,
@@ -37,6 +29,16 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        <Script
+          id="structured-data"
+          type="application/ld+json"
+          dangerouslySetInnerHTML={generateStructuredData([
+            organizationSchema,
+            websiteSchema,
+            gameSchema,
+          ])}
+          strategy="beforeInteractive"
+        />
         <Script
           async
           src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9052953742890246"

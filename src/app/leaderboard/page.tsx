@@ -1,5 +1,12 @@
 import { createClient } from "@/lib/supabase/server";
 import { getRank } from "@/lib/elo/ranks";
+import { createPageMetadata } from "@/lib/seo/metadata";
+
+export const metadata = createPageMetadata(
+  "Leaderboard",
+  "View the top WikiRun players ranked by ELO rating. Can you reach Wizard rank at 2000+ ELO?",
+  "/leaderboard"
+);
 
 type PlayerRow = {
   id: string;

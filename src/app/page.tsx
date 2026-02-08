@@ -1,4 +1,11 @@
 import Link from "next/link";
+import { createPageMetadata } from "@/lib/seo/metadata";
+
+export const metadata = createPageMetadata(
+  "Home",
+  "Race through Wikipedia articles in this competitive speedrun game. Navigate from one article to another as fast as possible.",
+  "/"
+);
 
 export default function Home() {
   return (

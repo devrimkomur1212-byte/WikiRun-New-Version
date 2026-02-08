@@ -2,7 +2,14 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getRank } from "@/lib/elo/ranks";
 import { StatsPanel } from "@/components/dashboard/StatsPanel";
+import { createPageMetadata } from "@/lib/seo/metadata";
 import type { Database } from "@/types/database.types";
+
+export const metadata = createPageMetadata(
+  "Dashboard",
+  "View your WikiRun stats, recent runs, achievements, and ELO rating. Track your progress and compete on the leaderboard.",
+  "/dashboard"
+);
 
 type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
 type RunRow = Database["public"]["Tables"]["runs"]["Row"];
