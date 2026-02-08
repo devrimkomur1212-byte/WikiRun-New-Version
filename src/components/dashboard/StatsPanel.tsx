@@ -47,60 +47,26 @@ function getRangeStart(range: DateRange): Date | null {
   }
 }
 
-// Monotone cubic interpolation — smooth curves that never overshoot between points
-function monotoneCubicPath(pts: { x: number; y: number }[]): string {
+// Cardinal spline — smooth rolling curves like Chess.com
+// Low tension (0.2) prevents overshooting while avoiding flat stair-steps
+function smoothCurvePath(pts: { x: number; y: number }[], tension = 0.2): string {
   if (pts.length < 2) return "";
   if (pts.length === 2) return `M ${pts[0].x},${pts[0].y} L ${pts[1].x},${pts[1].y}`;
 
-  const n = pts.length;
-
-  // Compute slopes (delta) between consecutive points
-  const dx: number[] = [];
-  const dy: number[] = [];
-  const m: number[] = [];
-  for (let i = 0; i < n - 1; i++) {
-    dx.push(pts[i + 1].x - pts[i].x);
-    dy.push(pts[i + 1].y - pts[i].y);
-    m.push(dy[i] / (dx[i] || 1));
-  }
-
-  // Compute tangent slopes using Fritsch-Carlson method (monotone-preserving)
-  const tangents: number[] = [m[0]];
-  for (let i = 1; i < n - 1; i++) {
-    if (m[i - 1] * m[i] <= 0) {
-      tangents.push(0);
-    } else {
-      tangents.push((m[i - 1] + m[i]) / 2);
-    }
-  }
-  tangents.push(m[n - 2]);
-
-  // Clamp tangents to ensure monotonicity
-  for (let i = 0; i < n - 1; i++) {
-    if (Math.abs(m[i]) < 1e-6) {
-      tangents[i] = 0;
-      tangents[i + 1] = 0;
-    } else {
-      const a = tangents[i] / m[i];
-      const b = tangents[i + 1] / m[i];
-      const s = a * a + b * b;
-      if (s > 9) {
-        const t = 3 / Math.sqrt(s);
-        tangents[i] = t * a * m[i];
-        tangents[i + 1] = t * b * m[i];
-      }
-    }
-  }
-
-  // Build cubic bezier path
   let d = `M ${pts[0].x},${pts[0].y}`;
-  for (let i = 0; i < n - 1; i++) {
-    const seg = dx[i] / 3;
-    const cp1x = pts[i].x + seg;
-    const cp1y = pts[i].y + tangents[i] * seg;
-    const cp2x = pts[i + 1].x - seg;
-    const cp2y = pts[i + 1].y - tangents[i + 1] * seg;
-    d += ` C ${cp1x},${cp1y} ${cp2x},${cp2y} ${pts[i + 1].x},${pts[i + 1].y}`;
+
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[Math.max(0, i - 1)];
+    const p1 = pts[i];
+    const p2 = pts[i + 1];
+    const p3 = pts[Math.min(pts.length - 1, i + 2)];
+
+    const cp1x = p1.x + (p2.x - p0.x) * tension;
+    const cp1y = p1.y + (p2.y - p0.y) * tension;
+    const cp2x = p2.x - (p3.x - p1.x) * tension;
+    const cp2y = p2.y - (p3.y - p1.y) * tension;
+
+    d += ` C ${cp1x},${cp1y} ${cp2x},${cp2y} ${p2.x},${p2.y}`;
   }
 
   return d;
@@ -127,10 +93,12 @@ function EloChart({ points }: { points: { date: string; elo: number }[] }) {
     const minElo = Math.min(...elos);
     const maxElo = Math.max(...elos);
     const eloRange = maxElo - minElo || 50;
-    // Wider Y-axis range for smoother curve appearance (minimum 300pt range)
-    const minRangeWidth = 300;
-    const targetRange = Math.max(eloRange, minRangeWidth);
-    const eloMargin = (targetRange - eloRange) / 2 + targetRange * 0.15;
+
+    // Wide Y-axis: minimum 300pt visual range for smooth appearance
+    const visualRange = Math.max(eloRange * 1.6, 300);
+    const center = (minElo + maxElo) / 2;
+    const visualMin = center - visualRange / 2;
+    const visualMax = center + visualRange / 2;
 
     const times = points.map((p) => new Date(p.date).getTime());
     const minTime = times[0];
@@ -139,7 +107,7 @@ function EloChart({ points }: { points: { date: string; elo: number }[] }) {
 
     const xScale = (t: number) => PAD.left + ((t - minTime) / timeRange) * plotW;
     const yScale = (e: number) =>
-      PAD.top + plotH - ((e - minElo + eloMargin) / (eloRange + eloMargin * 2)) * plotH;
+      PAD.top + plotH - ((e - visualMin) / (visualMax - visualMin)) * plotH;
 
     const pts = points.map((p) => ({
       x: xScale(new Date(p.date).getTime()),
@@ -148,13 +116,13 @@ function EloChart({ points }: { points: { date: string; elo: number }[] }) {
       date: p.date,
     }));
 
-    const curvePath = monotoneCubicPath(pts);
+    const curvePath = smoothCurvePath(pts);
     const areaPath = `${curvePath} L ${pts[pts.length - 1].x},${PAD.top + plotH} L ${pts[0].x},${PAD.top + plotH} Z`;
 
-    // Y-axis labels
-    const niceStep = Math.max(25, Math.ceil(eloRange / 4 / 25) * 25);
-    const niceMin = Math.floor(minElo / niceStep) * niceStep;
-    const niceMax = Math.ceil(maxElo / niceStep) * niceStep;
+    // Y-axis labels spanning the full visual range
+    const niceStep = Math.max(25, Math.ceil(visualRange / 5 / 25) * 25);
+    const niceMin = Math.ceil(visualMin / niceStep) * niceStep;
+    const niceMax = Math.floor(visualMax / niceStep) * niceStep;
     const yLabels: number[] = [];
     for (let v = niceMin; v <= niceMax; v += niceStep) {
       yLabels.push(v);
@@ -400,9 +368,11 @@ export function StatsPanel({ matches, userId, currentElo }: StatsPanelProps) {
     const winPct = total > 0 ? Math.round((wins / total) * 100) : 0;
     const lossPct = total > 0 ? 100 - winPct : 0;
 
-    // Rating change in period
-    const eloAtStart = chartPoints[0]?.elo || currentElo;
-    const ratingChange = currentElo - eloAtStart;
+    // Rating change within this time frame only
+    let ratingChange = 0;
+    for (const m of filteredMatches) {
+      ratingChange += getMyDelta(m, userId);
+    }
 
     // Highest rating in period
     const highestRating =
