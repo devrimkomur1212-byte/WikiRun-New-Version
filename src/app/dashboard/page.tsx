@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getRank } from "@/lib/elo/ranks";
+import { StatsPanel } from "@/components/dashboard/StatsPanel";
 import type { Database } from "@/types/database.types";
 
 type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
@@ -162,6 +163,25 @@ export default async function DashboardPage() {
 
   const matches = matchesData as MatchRow[] | null;
 
+  // Fetch opponent usernames for StatsPanel
+  const opponentIds = new Set<string>();
+  matches?.forEach((m) => {
+    const oppId = m.player1_id === user.id ? m.player2_id : m.player1_id;
+    opponentIds.add(oppId);
+  });
+
+  const opponentNames: Record<string, string> = {};
+  if (opponentIds.size > 0) {
+    const { data: oppProfiles } = await supabase
+      .from("profiles")
+      .select("id, username")
+      .in("id", Array.from(opponentIds));
+
+    (oppProfiles as { id: string; username: string }[] | null)?.forEach((p) => {
+      opponentNames[p.id] = p.username;
+    });
+  }
+
   const wins = matches?.filter((m) => m.winner_id === user.id).length || 0;
   const losses = (matches?.length || 0) - wins;
   const winRate = matches?.length ? Math.round((wins / matches.length) * 100) : 0;
@@ -234,6 +254,22 @@ export default async function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* Ranked Performance Stats */}
+      <StatsPanel
+        matches={(matches || []).map((m) => ({
+          id: m.id,
+          created_at: m.created_at,
+          player1_id: m.player1_id,
+          player2_id: m.player2_id,
+          winner_id: m.winner_id,
+          elo_delta_p1: m.elo_delta_p1,
+          elo_delta_p2: m.elo_delta_p2,
+        }))}
+        userId={user.id}
+        currentElo={profile?.elo_rating || 1000}
+        opponentNames={opponentNames}
+      />
 
       <div className="grid md:grid-cols-2 gap-6">
         {/* Recent Runs */}
