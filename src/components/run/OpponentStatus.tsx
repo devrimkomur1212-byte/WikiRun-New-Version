@@ -2,21 +2,13 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 import { useRunStore, selectCurrentTime } from "@/lib/run/runStore";
 import { submitRun } from "@/app/actions/submitRun";
 
-interface OpponentRunData {
-  is_completed: boolean;
-  gave_up: boolean;
-  active_time_ms: number;
-}
-
-interface MatchData {
-  player1_id: string;
-  player2_id: string;
-  player1_run_id: string | null;
-  player2_run_id: string | null;
+interface OpponentStatusResponse {
+  finished: boolean;
+  time?: number;
+  gaveUp?: boolean;
 }
 
 export function OpponentStatus() {
@@ -71,51 +63,28 @@ export function OpponentStatus() {
     }, 2000);
   }, [runId, completeRun, router]);
 
-  // Poll for opponent's run status
+  // Poll for opponent's run status via API (bypasses RLS)
   useEffect(() => {
     if (!isRankedMatch || isCompleted || opponentFinished) return;
 
-    const supabase = createClient();
     let isMounted = true;
 
     const checkOpponentStatus = async () => {
       if (!isMounted) return;
 
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
+        const res = await fetch(`/api/opponent-status?matchId=${matchId}`);
+        if (!res.ok) return;
 
-        const { data: matchData, error: matchError } = await supabase
-          .from("matches")
-          .select("player1_id, player2_id, player1_run_id, player2_run_id")
-          .eq("id", matchId)
-          .single();
+        const data = (await res.json()) as OpponentStatusResponse;
 
-        if (matchError || !matchData) return;
-
-        const match = matchData as unknown as MatchData;
-        const isPlayer1 = match.player1_id === user.id;
-        const opponentRunId = isPlayer1 ? match.player2_run_id : match.player1_run_id;
-
-        if (!opponentRunId) return;
-
-        const { data: opponentRunData, error: runError } = await supabase
-          .from("runs")
-          .select("is_completed, gave_up, active_time_ms")
-          .eq("id", opponentRunId)
-          .single();
-
-        if (runError || !opponentRunData) return;
-
-        const opponentRun = opponentRunData as unknown as OpponentRunData;
-
-        if (opponentRun.is_completed && isMounted) {
+        if (data.finished && isMounted) {
           setOpponentFinished(true);
-          setOpponentTime(opponentRun.active_time_ms);
-          setOpponentGaveUp(opponentRun.gave_up === true);
+          setOpponentTime(data.time ?? null);
+          setOpponentGaveUp(data.gaveUp === true);
         }
       } catch (error) {
-        console.error("[OpponentStatus] Error:", error);
+        console.error("[OpponentStatus] Polling error:", error);
       }
     };
 
