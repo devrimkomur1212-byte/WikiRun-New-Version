@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { rateLimit } from "@/lib/rate-limit";
 
 const WIKI_API_BASE = "https://en.wikipedia.org/w/api.php";
 
@@ -57,6 +58,12 @@ async function getBacklinks(title: string): Promise<string[]> {
  *   - Falls back to "3+" if no path found within 2 hops
  */
 export async function GET(request: Request) {
+  const ip = request.headers.get("x-forwarded-for") ?? "unknown";
+  const { success } = rateLimit(ip, 15, 60_000);
+  if (!success) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     const start = searchParams.get("start");

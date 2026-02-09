@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import DOMPurify from "isomorphic-dompurify";
+import { rateLimit } from "@/lib/rate-limit";
 
 const WIKI_API_BASE = "https://en.wikipedia.org/w/api.php";
 
@@ -7,6 +8,12 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ title: string }> }
 ) {
+  const ip = request.headers.get("x-forwarded-for") ?? "unknown";
+  const { success } = rateLimit(ip, 60, 60_000);
+  if (!success) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+  }
+
   const { title } = await params;
 
   if (!title) {

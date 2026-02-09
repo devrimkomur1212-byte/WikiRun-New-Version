@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { rateLimit } from "@/lib/rate-limit";
 
 const WIKI_API_BASE = "https://en.wikipedia.org/w/api.php";
 
@@ -24,6 +25,12 @@ function getPopularArticle(): string {
 }
 
 export async function GET(request: Request) {
+  const ip = request.headers.get("x-forwarded-for") ?? "unknown";
+  const { success } = rateLimit(ip, 10, 60_000);
+  if (!success) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     const difficulty = searchParams.get("difficulty") || "medium";
