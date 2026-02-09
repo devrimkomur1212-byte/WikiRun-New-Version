@@ -1,28 +1,8 @@
 import { NextResponse } from "next/server";
 import { rateLimit } from "@/lib/rate-limit";
+import { getPopularArticle, getCategoricallyUnrelatedPair } from "@/lib/articles";
 
 const WIKI_API_BASE = "https://en.wikipedia.org/w/api.php";
-
-const POPULAR_ARTICLES: string[] = [
-  // Countries
-  "United States", "France", "Japan", "Brazil", "India", "Germany", "Canada",
-  "Australia", "China", "Italy", "Mexico", "United Kingdom", "Russia", "Egypt",
-  "South Korea", "Argentina", "Nigeria", "Thailand", "Vietnam", "Peru",
-  // Cities
-  "New York City", "London", "Paris", "Tokyo", "Sydney", "Berlin", "Rome",
-  "Los Angeles", "Chicago", "Toronto", "Madrid", "Mumbai", "Cairo", "Bangkok",
-  // Famous people
-  "Albert Einstein", "Leonardo da Vinci", "Isaac Newton", "Marie Curie",
-  "William Shakespeare", "Wolfgang Amadeus Mozart", "Charles Darwin",
-  "Nikola Tesla", "Alan Turing", "Cleopatra", "Napoleon Bonaparte",
-  // Broadly well-known topics
-  "World War II", "The Internet", "Soccer", "Olympic Games", "Space shuttle",
-  "Mount Everest", "Amazon River", "Great Wall of China", "Coffee", "Pizza",
-];
-
-function getPopularArticle(): string {
-  return POPULAR_ARTICLES[Math.floor(Math.random() * POPULAR_ARTICLES.length)];
-}
 
 export async function GET(request: Request) {
   const ip = request.headers.get("x-forwarded-for") ?? "unknown";
@@ -40,7 +20,7 @@ export async function GET(request: Request) {
 
     switch (difficulty) {
       case "easy": {
-        // Both articles from popular list - familiar territory
+        // Both articles from well-known list
         startTitle = getPopularArticle();
         targetTitle = getPopularArticle();
         while (targetTitle === startTitle) {
@@ -49,23 +29,26 @@ export async function GET(request: Request) {
         break;
       }
       case "medium": {
-        // Both popular articles - slightly harder combinations
-        startTitle = getPopularArticle();
-        targetTitle = getPopularArticle();
-        while (targetTitle === startTitle) {
-          targetTitle = getPopularArticle();
-        }
+        // Both well-known but from different categories
+        const pair = getCategoricallyUnrelatedPair();
+        startTitle = pair.start;
+        targetTitle = pair.target;
         break;
       }
       case "hard":
       default: {
-        // Popular start, random target - the real challenge
-        startTitle = getPopularArticle();
-        const randomArticle = await getRandomArticle();
-        targetTitle = randomArticle.title;
-        if (targetTitle === startTitle) {
-          const retry = await getRandomArticle();
-          targetTitle = retry.title;
+        // Random start, well-known destination
+        let randomTitle: string;
+        try {
+          const randomArticle = await getRandomArticle();
+          randomTitle = randomArticle.title;
+        } catch {
+          randomTitle = getPopularArticle();
+        }
+        startTitle = randomTitle;
+        targetTitle = getPopularArticle();
+        while (targetTitle === startTitle) {
+          targetTitle = getPopularArticle();
         }
         break;
       }
@@ -86,7 +69,7 @@ async function getRandomArticle(): Promise<{ title: string }> {
     action: "query",
     format: "json",
     list: "random",
-    rnnamespace: "0", // Main namespace only
+    rnnamespace: "0",
     rnlimit: "1",
     origin: "*",
   });

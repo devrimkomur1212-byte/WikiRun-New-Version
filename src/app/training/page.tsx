@@ -72,14 +72,14 @@ export default function TrainingPage() {
       color: "text-yellow-500",
       bg: "bg-yellow-500/10",
       border: "border-yellow-500/20",
-      description: "Popular articles, trickier combinations. Test your knowledge.",
+      description: "Both articles are well-known, but from completely different topics. Connect the dots!",
     },
     hard: {
       label: "Hard",
       color: "text-red-500",
       bg: "bg-red-500/10",
       border: "border-red-500/20",
-      description: "Start somewhere familiar. End up… somewhere random.",
+      description: "Dropped somewhere random. Find your way to a well-known destination.",
     },
   };
 
