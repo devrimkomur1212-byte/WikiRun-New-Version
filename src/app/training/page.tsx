@@ -1,10 +1,18 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ArticleSearch } from "@/components/training/ArticleSearch";
 
 type Difficulty = "easy" | "medium" | "hard";
+
+interface PersonalRecord {
+  timeMs: number;
+  clicks: number;
+  date: string;
+}
+
+type PersonalRecords = Partial<Record<Difficulty, PersonalRecord>>;
 
 async function getRandomArticle(): Promise<string> {
   const params = new URLSearchParams({
@@ -24,9 +32,25 @@ async function getRandomArticle(): Promise<string> {
   return page.title;
 }
 
+function formatRecordTime(ms: number): string {
+  const totalSeconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+}
+
 export default function TrainingPage() {
   const router = useRouter();
   const [generatingRoute, setGeneratingRoute] = useState<Difficulty | null>(null);
+  const [records, setRecords] = useState<PersonalRecords>({});
+
+  // Load personal records from localStorage
+  useEffect(() => {
+    const stored = localStorage.getItem("training-records");
+    if (stored) {
+      setRecords(JSON.parse(stored));
+    }
+  }, []);
 
   // Custom route state
   const [customStart, setCustomStart] = useState("");
@@ -211,6 +235,19 @@ export default function TrainingPage() {
                 "Start Run"
               )}
             </button>
+
+            {/* Personal Record */}
+            {records[difficulty] && (
+              <div className="mt-3 pt-3 border-t border-border/30 flex items-center justify-between text-xs text-muted-foreground">
+                <span className="font-medium">Personal Best</span>
+                <span className="font-mono font-semibold text-foreground">
+                  {formatRecordTime(records[difficulty]!.timeMs)}
+                  <span className="text-muted-foreground font-normal ml-1.5">
+                    ({records[difficulty]!.clicks} clicks)
+                  </span>
+                </span>
+              </div>
+            )}
           </div>
         ))}
       </div>

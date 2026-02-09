@@ -146,11 +146,14 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const mode = searchParams.get("mode");
 
-    // Determine difficulty first
+    // Determine difficulty
     let difficulty: string;
     if (mode === "ranked") {
-      // TEMP: All ranked games are easy for testing
-      difficulty = "easy";
+      // Ranked distribution: 40% easy, 50% medium, 10% hard
+      const roll = Math.random();
+      if (roll < 0.4) difficulty = "easy";
+      else if (roll < 0.9) difficulty = "medium";
+      else difficulty = "hard";
     } else {
       // Default: equal distribution
       const difficulties = ["easy", "medium", "hard"];
@@ -160,35 +163,49 @@ export async function GET(request: Request) {
     let startTitle: string | null = null;
     let targetTitle: string | null = null;
 
-    // For easy difficulty, use popular articles (familiar territory)
     if (difficulty === "easy") {
+      // Both articles from POPULAR_ARTICLES
       startTitle = getPopularArticle();
       targetTitle = getPopularArticle();
       while (targetTitle === startTitle) {
         targetTitle = getPopularArticle();
       }
+    } else if (difficulty === "hard") {
+      // Hard: random start article, popular destination
+      // The player needs to know where they're going to have a chance
+      const randomArticles = await getRandomArticles(10);
+      for (const candidate of randomArticles) {
+        const valid = await validateArticleHasLinks(candidate);
+        if (valid) {
+          startTitle = candidate;
+          break;
+        }
+      }
+      if (!startTitle) {
+        startTitle = randomArticles[0] || "Philosophy";
+      }
+      targetTitle = getPopularArticle();
+      while (targetTitle === startTitle) {
+        targetTitle = getPopularArticle();
+      }
     } else {
-      // For medium/hard, use obscure categories or random articles
+      // Medium: obscure categories or random articles for both
       const useCategory = Math.random() < 0.5;
 
       let candidates: string[] = [];
 
       if (useCategory) {
-        // Pick a random obscure category
         const category = OBSCURE_CATEGORIES[Math.floor(Math.random() * OBSCURE_CATEGORIES.length)];
         candidates = await getRandomFromCategory(category);
       }
 
-      // If category didn't yield enough, fall back to random
       if (candidates.length < 10) {
         const randomArticles = await getRandomArticles(20);
         candidates = [...candidates, ...randomArticles];
       }
 
-      // Shuffle candidates
       candidates = candidates.sort(() => Math.random() - 0.5);
 
-      // Find two valid articles (with enough links)
       for (const candidate of candidates) {
         if (!startTitle) {
           const valid = await validateArticleHasLinks(candidate);
@@ -206,7 +223,6 @@ export async function GET(request: Request) {
       }
 
       if (!startTitle || !targetTitle) {
-        // Fallback: just get any two random articles
         const fallback = await getRandomArticles(2);
         startTitle = fallback[0] || "Philosophy";
         targetTitle = fallback[1] || "Mathematics";

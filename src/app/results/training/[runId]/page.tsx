@@ -34,6 +34,14 @@ interface RunMetadata {
   difficulty: string;
 }
 
+interface PersonalRecord {
+  timeMs: number;
+  clicks: number;
+  date: string;
+}
+
+type PersonalRecords = Partial<Record<string, PersonalRecord>>;
+
 export default function TrainingResultsPage({ params }: Props) {
   const router = useRouter();
   const [results, setResults] = useState<RunResults | null>(null);
@@ -43,6 +51,7 @@ export default function TrainingResultsPage({ params }: Props) {
   const [shortestPath, setShortestPath] = useState<ShortestPathResult | null>(null);
   const [loadingShortestPath, setLoadingShortestPath] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isNewRecord, setIsNewRecord] = useState(false);
 
   // Check auth status
   useEffect(() => {
@@ -84,6 +93,28 @@ export default function TrainingResultsPage({ params }: Props) {
       setLoading(false);
     }
   }, [runId, router]);
+
+  // Check and save personal record
+  useEffect(() => {
+    if (!results || !metadata) return;
+    if (results.gaveUp) return;
+    const diff = metadata.difficulty;
+    if (diff !== "easy" && diff !== "medium" && diff !== "hard") return;
+
+    const stored = localStorage.getItem("training-records");
+    const records: PersonalRecords = stored ? JSON.parse(stored) : {};
+    const current = records[diff];
+
+    if (!current || results.activeTimeMs < current.timeMs) {
+      records[diff] = {
+        timeMs: results.activeTimeMs,
+        clicks: results.clicksCount,
+        date: new Date().toISOString(),
+      };
+      localStorage.setItem("training-records", JSON.stringify(records));
+      setIsNewRecord(true);
+    }
+  }, [results, metadata]);
 
   // Fetch shortest path for all runs (not just give-up)
   useEffect(() => {
@@ -142,6 +173,17 @@ export default function TrainingResultsPage({ params }: Props) {
         </h1>
         <p className="text-muted-foreground">Training Mode</p>
       </div>
+
+      {/* Personal Record Banner */}
+      {isNewRecord && (
+        <div className="rounded-2xl bg-yellow-500/10 border border-yellow-500/30 p-5 text-center shadow-soft animate-scale-in">
+          <div className="text-3xl mb-1">🏅</div>
+          <h2 className="text-lg font-bold text-yellow-500">New Personal Record!</h2>
+          <p className="text-sm text-muted-foreground">
+            Best time on {metadata.difficulty} difficulty
+          </p>
+        </div>
+      )}
 
       {/* Route Info */}
       <div className="rounded-2xl border border-border/40 bg-card p-6 shadow-soft animate-slide-up">
