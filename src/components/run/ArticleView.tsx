@@ -118,6 +118,17 @@ export function ArticleView({
     loadArticle();
   }, [initialTitle, startTitle, runId, setOutgoingLinks, setCurrentArticle, resumeTimer]);
 
+  // Block Ctrl+F / Cmd+F during gameplay
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "f") {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
   // Check for target reached
   useEffect(() => {
     if (isTargetReached && !isCompleted) {
