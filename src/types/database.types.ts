@@ -37,6 +37,7 @@ export type Database = {
           games_played_ranked?: number;
           is_pro?: boolean;
         };
+        Relationships: [];
       };
       routes: {
         Row: {
@@ -63,6 +64,7 @@ export type Database = {
           is_active?: boolean;
           created_at?: string;
         };
+        Relationships: [];
       };
       matches: {
         Row: {
@@ -110,6 +112,29 @@ export type Database = {
           elo_delta_p2?: number | null;
           start_time?: string | null;
         };
+        Relationships: [
+          {
+            foreignKeyName: "matches_route_id_fkey";
+            columns: ["route_id"];
+            isOneToOne: false;
+            referencedRelation: "routes";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "matches_player1_run_id_fkey";
+            columns: ["player1_run_id"];
+            isOneToOne: false;
+            referencedRelation: "runs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "matches_player2_run_id_fkey";
+            columns: ["player2_run_id"];
+            isOneToOne: false;
+            referencedRelation: "runs";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       runs: {
         Row: {
@@ -166,6 +191,7 @@ export type Database = {
           gave_up?: boolean;
           created_at?: string;
         };
+        Relationships: [];
       };
       achievements: {
         Row: {
@@ -189,6 +215,7 @@ export type Database = {
           icon?: string | null;
           criteria?: Json;
         };
+        Relationships: [];
       };
       user_achievements: {
         Row: {
@@ -206,6 +233,7 @@ export type Database = {
           achievement_id?: string;
           unlocked_at?: string;
         };
+        Relationships: [];
       };
       queue_ranked: {
         Row: {
@@ -226,6 +254,15 @@ export type Database = {
           queued_at?: string;
           elo_rating?: number;
         };
+        Relationships: [
+          {
+            foreignKeyName: "queue_ranked_route_id_fkey";
+            columns: ["route_id"];
+            isOneToOne: false;
+            referencedRelation: "routes";
+            referencedColumns: ["id"];
+          },
+        ];
       };
     };
     Views: {};
