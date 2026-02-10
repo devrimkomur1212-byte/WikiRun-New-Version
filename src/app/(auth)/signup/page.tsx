@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
+import { validateUsername } from "@/lib/validation/profanity";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -21,14 +22,9 @@ export default function SignupPage() {
     setError(null);
 
     // Validate username
-    if (username.length < 3 || username.length > 20) {
-      setError("Username must be between 3 and 20 characters");
-      setLoading(false);
-      return;
-    }
-
-    if (!/^[a-zA-Z0-9_]+$/.test(username)) {
-      setError("Username can only contain letters, numbers, and underscores");
+    const usernameError = validateUsername(username);
+    if (usernameError) {
+      setError(usernameError);
       setLoading(false);
       return;
     }

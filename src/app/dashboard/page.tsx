@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getRank } from "@/lib/elo/ranks";
 import { StatsPanel } from "@/components/dashboard/StatsPanel";
+import { ChangeUsername } from "@/components/dashboard/ChangeUsername";
 import { createPageMetadata } from "@/lib/seo/metadata";
 import type { Database } from "@/types/database.types";
 
@@ -207,7 +208,7 @@ export default async function DashboardPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-fade-in">
         <div>
-          <h1 className="text-display-sm">{profile?.username}</h1>
+          <ChangeUsername currentUsername={profile?.username || "Player"} />
           <p className="text-muted-foreground">
             Member since {new Date(profile?.created_at || "").toLocaleDateString()}
           </p>
