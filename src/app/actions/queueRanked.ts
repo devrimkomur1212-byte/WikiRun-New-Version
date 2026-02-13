@@ -314,24 +314,20 @@ export async function checkPendingMatch() {
 
   const match = matchData as MatchRow & { routes: RouteRow | null };
 
-  // Find the user's run for this match
+  // Find the user's incomplete run for this match
   const { data: runData } = await supabase
     .from("runs")
     .select("*")
     .eq("match_id", match.id)
     .eq("user_id", user.id)
-    .single();
+    .eq("is_completed", false)
+    .maybeSingle();
 
   if (!runData) {
     return null;
   }
 
   const run = runData as RunRow;
-
-  // If run is already completed, don't return it
-  if (run.is_completed) {
-    return null;
-  }
 
   return {
     matchId: match.id,

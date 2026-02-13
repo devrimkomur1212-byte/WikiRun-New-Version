@@ -51,13 +51,14 @@ export async function joinMatchmakingQueue() {
       player2_id: string;
     };
 
-    // Find the user's run for this match
+    // Find the user's incomplete run for this match
     const { data: existingRunData } = await supabase
       .from("runs")
       .select("id, start_title, target_title")
       .eq("match_id", existingMatch.id)
       .eq("user_id", user.id)
-      .single();
+      .eq("is_completed", false)
+      .maybeSingle();
 
     if (existingRunData) {
       const existingRun = existingRunData as {
