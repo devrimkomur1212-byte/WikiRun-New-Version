@@ -4,6 +4,7 @@ import Script from "next/script";
 import "./globals.css";
 import { ThemeProvider } from "@/components/layout/ThemeProvider";
 import { Navbar } from "@/components/layout/Navbar";
+import { Footer } from "@/components/layout/Footer";
 import { baseMetadata } from "@/lib/seo/metadata";
 import { organizationSchema, websiteSchema, gameSchema, generateStructuredData } from "@/lib/seo/structured-data";
 
@@ -60,6 +61,7 @@ export default function RootLayout({
                 {children}
               </div>
             </main>
+            <Footer />
           </div>
         </ThemeProvider>
       </body>
