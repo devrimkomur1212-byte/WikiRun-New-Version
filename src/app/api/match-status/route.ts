@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { expireStaleMatches } from "@/lib/matches/resolve";
 
 interface MatchData {
   status: string;
@@ -8,7 +9,11 @@ interface MatchData {
   elo_delta_p2: number | null;
   player1_id: string;
   player2_id: string;
+  expires_at: string | null;
 }
+
+const MATCH_FIELDS =
+  "status, winner_id, elo_delta_p1, elo_delta_p2, player1_id, player2_id, expires_at";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -32,7 +37,7 @@ export async function GET(request: Request) {
   // Fetch match
   const { data: matchData, error } = await supabase
     .from("matches")
-    .select("status, winner_id, elo_delta_p1, elo_delta_p2, player1_id, player2_id")
+    .select(MATCH_FIELDS)
     .eq("id", matchId)
     .single();
 
@@ -40,7 +45,28 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Match not found" }, { status: 404 });
   }
 
-  const match = matchData as unknown as MatchData;
+  let match = matchData as unknown as MatchData;
+
+  // The finisher's results page polls this endpoint while waiting for the
+  // opponent. If the match deadline has passed, settle it now — the sole
+  // finisher gets the win, abandoned matches expire.
+  if (
+    match.status === "pending" &&
+    match.expires_at &&
+    new Date(match.expires_at).getTime() < Date.now()
+  ) {
+    await expireStaleMatches(matchId);
+
+    const { data: refreshedData } = await supabase
+      .from("matches")
+      .select(MATCH_FIELDS)
+      .eq("id", matchId)
+      .single();
+
+    if (refreshedData) {
+      match = refreshedData as unknown as MatchData;
+    }
+  }
 
   // Determine which player this user is
   const isPlayer1 = match.player1_id === user.id;

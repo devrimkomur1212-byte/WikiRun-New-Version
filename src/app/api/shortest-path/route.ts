@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { rateLimit } from "@/lib/rate-limit";
-
-const WIKI_API_BASE = "https://en.wikipedia.org/w/api.php";
+import { fetchWikiJson } from "@/lib/wiki/api";
 
 /**
  * Fetches all outgoing links from a Wikipedia article (namespace 0 only).
@@ -17,15 +16,16 @@ async function getOutgoingLinks(title: string): Promise<string[]> {
     origin: "*",
   });
 
-  const res = await fetch(`${WIKI_API_BASE}?${params}`);
-  const data = await res.json();
+  const data = (await fetchWikiJson(params)) as {
+    query?: { pages?: Record<string, { links?: { title: string }[] }> };
+  } | null;
 
-  const pages = data.query?.pages;
+  const pages = data?.query?.pages;
   if (!pages) return [];
 
   const pageId = Object.keys(pages)[0];
   const links = pages[pageId]?.links || [];
-  return links.map((l: { title: string }) => l.title);
+  return links.map((l) => l.title);
 }
 
 /**
@@ -42,11 +42,12 @@ async function getBacklinks(title: string): Promise<string[]> {
     origin: "*",
   });
 
-  const res = await fetch(`${WIKI_API_BASE}?${params}`);
-  const data = await res.json();
+  const data = (await fetchWikiJson(params)) as {
+    query?: { backlinks?: { title: string }[] };
+  } | null;
 
-  const backlinks = data.query?.backlinks || [];
-  return backlinks.map((b: { title: string }) => b.title);
+  const backlinks = data?.query?.backlinks || [];
+  return backlinks.map((b) => b.title);
 }
 
 /**

@@ -241,18 +241,21 @@ export type Database = {
           route_id: string;
           queued_at: string;
           elo_rating: number;
+          last_seen: string;
         };
         Insert: {
           user_id: string;
           route_id?: string;
           queued_at?: string;
           elo_rating: number;
+          last_seen?: string;
         };
         Update: {
           user_id?: string;
           route_id?: string;
           queued_at?: string;
           elo_rating?: number;
+          last_seen?: string;
         };
         Relationships: [
           {
@@ -266,7 +269,16 @@ export type Database = {
       };
     };
     Views: {};
-    Functions: {};
+    Functions: {
+      claim_queue_opponent: {
+        Args: { p_user_id: string; p_elo: number };
+        Returns: {
+          opponent_id: string;
+          opponent_elo: number;
+          opponent_queued_at: string;
+        }[];
+      };
+    };
     Enums: {};
   };
 };

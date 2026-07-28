@@ -4,21 +4,24 @@ import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import type { Database } from "@/types/database.types";
 import { logger } from "@/lib/logger";
+import { generateRandomRoute } from "@/lib/wiki/randomRoute";
+import { expireStaleMatches } from "@/lib/matches/resolve";
 
 type MatchInsert = Database["public"]["Tables"]["matches"]["Insert"];
 type RunInsert = Database["public"]["Tables"]["runs"]["Insert"];
+type QueueInsert = Database["public"]["Tables"]["queue_ranked"]["Insert"];
 
-// ELO matching tiers - range expands over time, capped at 200
-const ELO_TIERS = [
-  { range: 50, timeThresholdMs: 0 },       // 0-15s: ±50 ELO
-  { range: 100, timeThresholdMs: 15000 },  // 15-45s: ±100 ELO
-  { range: 200, timeThresholdMs: 45000 },  // 45s+: ±200 ELO (maximum)
-];
+// How long after its scheduled start a pending match can stay unresolved
+// before the timeout sweep settles it (sole finisher wins, ghosts expire)
+const MATCH_EXPIRY_MS = 15 * 60 * 1000;
+
+// ELO matching tiers (enforced inside the claim_queue_opponent DB function):
+// 0-15s: ±50, 15-45s: ±100, 45s+: ±200. Queue entries whose heartbeat is
+// older than 15s are invisible to matchmaking and deleted after 60s.
 
 interface QueuedPlayer {
   user_id: string;
   elo_rating: number;
-  queued_at: string;
 }
 
 export async function joinMatchmakingQueue() {
@@ -32,6 +35,10 @@ export async function joinMatchmakingQueue() {
   if (!user) {
     throw new Error("Unauthorized");
   }
+
+  // Settle any timed-out matches first so a stale pending match can't
+  // re-capture a player through the existing-match check below
+  await expireStaleMatches();
 
   // First, check if user already has a pending match (prevents re-queuing after match is created)
   const { data: existingMatchData } = await supabase
@@ -115,24 +122,14 @@ export async function joinMatchmakingQueue() {
   const profile = profileData as { elo_rating: number } | null;
   const userElo = profile?.elo_rating ?? 1000;
 
-  logger.info('matchmaking', `User ${user.id} joining queue`, { elo: userElo });
-
-  // Try to find a match based on ELO range
-  const match = await findMatchInQueue(serviceSupabase, user.id, userElo);
-
-  if (match) {
-    // Remove self from queue first (in case we were already in it)
-    await serviceSupabase.from("queue_ranked").delete().eq("user_id", user.id);
-    logger.info('matchmaking', 'Match found, creating match', { opponentId: match.user_id, opponentElo: match.elo_rating });
-    return await createMatch(serviceSupabase, supabase, user.id, userElo, match);
-  }
-
-  logger.debug('matchmaking', 'No match found, adding to queue');
-  // No match found - upsert into queue (handles race conditions from polling)
-  type QueueInsert = Database["public"]["Tables"]["queue_ranked"]["Insert"];
+  // Upsert self into the queue with a fresh heartbeat. Clients call this
+  // action every 3 seconds while searching, so last_seen doubles as a
+  // liveness signal — players who close the tab stop refreshing and become
+  // invisible to matchmaking within seconds (no more ghost matches).
   const queueData: QueueInsert = {
     user_id: user.id,
     elo_rating: userElo,
+    last_seen: new Date().toISOString(),
   };
   const { error: queueError } = await serviceSupabase
     .from("queue_ranked")
@@ -142,77 +139,39 @@ export async function joinMatchmakingQueue() {
     throw new Error("Failed to join queue: " + queueError.message);
   }
 
-  // Re-check after insert — handles race condition where opponent inserted simultaneously
-  const matchAfterInsert = await findMatchInQueue(serviceSupabase, user.id, userElo);
-  if (matchAfterInsert) {
-    logger.info('matchmaking', 'Match found on re-check after insert');
-    // Remove self from queue before creating match (we just inserted ourselves above)
-    await serviceSupabase.from("queue_ranked").delete().eq("user_id", user.id);
-    return await createMatch(serviceSupabase, supabase, user.id, userElo, matchAfterInsert);
+  // Atomically claim an opponent. The DB function locks both players' queue
+  // rows in a consistent order, so two players joining simultaneously can't
+  // both create a match for the same pair.
+  const { data: claimData, error: claimError } = await serviceSupabase.rpc(
+    "claim_queue_opponent",
+    { p_user_id: user.id, p_elo: userElo }
+  );
+
+  if (claimError) {
+    logger.error('matchmaking', 'claim_queue_opponent failed', claimError);
+    return { status: "queued" as const, elo: userElo };
   }
 
-  revalidatePath("/play");
+  const claimed = (claimData as
+    | { opponent_id: string; opponent_elo: number }[]
+    | null)?.[0];
 
-  return {
-    status: "queued" as const,
-    elo: userElo,
-  };
-}
-
-async function findMatchInQueue(
-  serviceSupabase: Awaited<ReturnType<typeof createServiceClient>>,
-  userId: string,
-  userElo: number
-): Promise<QueuedPlayer | null> {
-  // Get all queue entries (excluding self), ordered by time
-  const { data: queueEntriesData } = await serviceSupabase
-    .from("queue_ranked")
-    .select("user_id, elo_rating, queued_at")
-    .neq("user_id", userId)
-    .order("queued_at", { ascending: true });
-
-  const queueEntries = queueEntriesData as QueuedPlayer[] | null;
-
-  logger.debug('matchmaking', 'Queue search', { found: queueEntries?.length || 0 });
-
-  if (!queueEntries || queueEntries.length === 0) {
-    return null;
+  if (!claimed) {
+    // Still queued — or we were claimed by another player, in which case
+    // their match INSERT notifies us via realtime or the next status poll
+    revalidatePath("/play");
+    return { status: "queued" as const, elo: userElo };
   }
 
-  const now = Date.now();
+  logger.info('matchmaking', 'Opponent claimed, creating match', {
+    opponentId: claimed.opponent_id,
+    opponentElo: claimed.opponent_elo,
+  });
 
-  for (const entry of queueEntries) {
-    const waitTimeMs = now - new Date(entry.queued_at).getTime();
-    const eloDiff = Math.abs(entry.elo_rating - userElo);
-
-    // Find the appropriate ELO tier based on their wait time
-    // Use the highest tier they qualify for (most relaxed matching)
-    let maxAllowedRange = ELO_TIERS[0].range;
-    for (const tier of ELO_TIERS) {
-      if (waitTimeMs >= tier.timeThresholdMs) {
-        maxAllowedRange = tier.range;
-      }
-    }
-
-    logger.debug('matchmaking', 'Checking opponent', {
-      opponentId: entry.user_id,
-      eloDiff,
-      waitTimeMs,
-      maxAllowedRange
-    });
-
-    // Check if ELO difference is within allowed range (capped at 200)
-    if (eloDiff <= maxAllowedRange) {
-      logger.info('matchmaking', 'Opponent matched within ELO range', {
-        opponentId: entry.user_id,
-        eloDiff,
-        maxAllowedRange
-      });
-      return entry as QueuedPlayer;
-    }
-  }
-
-  return null;
+  return await createMatch(serviceSupabase, supabase, user.id, userElo, {
+    user_id: claimed.opponent_id,
+    elo_rating: claimed.opponent_elo,
+  });
 }
 
 async function createMatch(
@@ -224,167 +183,162 @@ async function createMatch(
 ) {
   logger.info('matchmaking', 'Creating match', { userId, opponentId: opponent.user_id });
 
-  // Generate a shared route for ranked (weighted difficulty: 70% medium)
-  logger.debug('matchmaking', 'Generating route...');
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
-  const response = await fetch(`${baseUrl}/api/random-route?mode=ranked`);
+  try {
+    // Generate a shared route for ranked (weighted difficulty: mostly easy/medium).
+    // Never throws — Wikipedia failures degrade to the popular-article list.
+    const route = await generateRandomRoute("ranked");
+    logger.debug('matchmaking', 'Route generated', { startTitle: route.startTitle, targetTitle: route.targetTitle });
 
-  if (!response.ok) {
-    logger.error('matchmaking', 'Failed to generate route', { status: response.status });
-    throw new Error("Failed to generate route");
+    // Create route in DB
+    type RouteInsert = Database["public"]["Tables"]["routes"]["Insert"];
+    const routeInsertData: RouteInsert = {
+      start_title: route.startTitle,
+      target_title: route.targetTitle,
+      difficulty: route.difficulty || "medium",
+      is_active: true,
+    };
+    const { data: routeData, error: routeError } = await serviceSupabase
+      .from("routes")
+      .insert(routeInsertData as never)
+      .select()
+      .single();
+
+    if (routeError || !routeData) {
+      logger.error('matchmaking', 'Failed to create route in DB', routeError);
+      throw new Error("Failed to create route: " + routeError?.message);
+    }
+
+    const routeResult = routeData as { id: string };
+
+    // Set start_time to 5 seconds from now for countdown
+    const startTimeMs = Date.now() + 5000;
+    const startTime = new Date(startTimeMs).toISOString();
+
+    // Create the match; expires_at is the deadline for the timeout sweep
+    const matchData: MatchInsert = {
+      route_id: routeResult.id,
+      player1_id: opponent.user_id,
+      player2_id: userId,
+      status: "pending",
+      start_time: startTime,
+      expires_at: new Date(startTimeMs + MATCH_EXPIRY_MS).toISOString(),
+    };
+
+    const { data: matchResultData, error: matchError } = await serviceSupabase
+      .from("matches")
+      .insert(matchData as never)
+      .select()
+      .single();
+
+    if (matchError || !matchResultData) {
+      logger.error('matchmaking', 'Failed to create match record', matchError);
+      throw new Error("Failed to create match: " + matchError?.message);
+    }
+
+    const matchResult = matchResultData as { id: string };
+    logger.info('matchmaking', 'Match record created', { matchId: matchResult.id });
+
+    // Create run for Player 1 (the waiting opponent)
+    const player1RunData: RunInsert = {
+      user_id: opponent.user_id,
+      mode: "ranked",
+      route_id: routeResult.id,
+      match_id: matchResult.id,
+      start_title: route.startTitle,
+      target_title: route.targetTitle,
+      active_time_ms: 0,
+      clicks_count: 0,
+      misses_count: 0,
+      route_titles: [],
+      step_data: [],
+      is_completed: false,
+    };
+
+    const { data: player1RunResultData, error: player1RunError } = await serviceSupabase
+      .from("runs")
+      .insert(player1RunData as never)
+      .select()
+      .single();
+
+    if (player1RunError) {
+      logger.error('matchmaking', 'Failed to create run for player 1', player1RunError);
+      throw new Error("Failed to create run for opponent");
+    }
+
+    const player1RunResult = player1RunResultData as { id: string };
+
+    // Create run for Player 2 (current user)
+    const player2RunData: RunInsert = {
+      user_id: userId,
+      mode: "ranked",
+      route_id: routeResult.id,
+      match_id: matchResult.id,
+      start_title: route.startTitle,
+      target_title: route.targetTitle,
+      active_time_ms: 0,
+      clicks_count: 0,
+      misses_count: 0,
+      route_titles: [],
+      step_data: [],
+      is_completed: false,
+    };
+
+    const { data: player2RunResultData, error: player2RunError } = await userSupabase
+      .from("runs")
+      .insert(player2RunData as never)
+      .select()
+      .single();
+
+    if (player2RunError || !player2RunResultData) {
+      logger.error('matchmaking', 'Failed to create run for player 2', player2RunError);
+      throw new Error("Failed to create run: " + player2RunError?.message);
+    }
+
+    const player2RunResult = player2RunResultData as { id: string };
+
+    // Update match with run IDs
+    await serviceSupabase
+      .from("matches")
+      .update({
+        player1_run_id: player1RunResult.id,
+        player2_run_id: player2RunResult.id,
+      } as never)
+      .eq("id", matchResult.id);
+
+    logger.info('matchmaking', 'Match creation complete', {
+      matchId: matchResult.id,
+      player1RunId: player1RunResult.id,
+      player2RunId: player2RunResult.id
+    });
+
+    revalidatePath("/play");
+
+    return {
+      status: "matched" as const,
+      matchId: matchResult.id,
+      runId: player2RunResult.id,
+      startTime,
+      route: {
+        startTitle: route.startTitle,
+        targetTitle: route.targetTitle,
+      },
+      opponent: {
+        elo: opponent.elo_rating,
+      },
+    };
+  } catch (error) {
+    // The claim already removed both players from the queue — put them back
+    // so neither is silently stranded outside matchmaking
+    logger.error('matchmaking', 'Match creation failed, re-queueing both players', error);
+    const requeueRows: QueueInsert[] = [
+      { user_id: userId, elo_rating: userElo, last_seen: new Date().toISOString() },
+      { user_id: opponent.user_id, elo_rating: opponent.elo_rating, last_seen: new Date().toISOString() },
+    ];
+    await serviceSupabase
+      .from("queue_ranked")
+      .upsert(requeueRows as never, { onConflict: "user_id" });
+    throw error;
   }
-
-  const route = await response.json();
-  logger.debug('matchmaking', 'Route generated', { startTitle: route.startTitle, targetTitle: route.targetTitle });
-
-  // Create route in DB
-  type RouteInsert = Database["public"]["Tables"]["routes"]["Insert"];
-  const routeInsertData: RouteInsert = {
-    start_title: route.startTitle,
-    target_title: route.targetTitle,
-    difficulty: route.difficulty || "medium",
-    is_active: true,
-  };
-  const { data: routeData, error: routeError } = await serviceSupabase
-    .from("routes")
-    .insert(routeInsertData as never)
-    .select()
-    .single();
-
-  if (routeError || !routeData) {
-    logger.error('matchmaking', 'Failed to create route in DB', routeError);
-    throw new Error("Failed to create route: " + routeError?.message);
-  }
-
-  const routeResult = routeData as { id: string };
-  logger.debug('matchmaking', 'Route created in DB', { routeId: routeResult.id });
-
-  // Set start_time to 5 seconds from now for countdown
-  const startTime = new Date(Date.now() + 5000).toISOString();
-
-  logger.debug('matchmaking', 'Creating match record', { startTime });
-  // Create the match
-  const matchData: MatchInsert = {
-    route_id: routeResult.id,
-    player1_id: opponent.user_id,
-    player2_id: userId,
-    status: "pending",
-    start_time: startTime,
-  };
-
-  const { data: matchResultData, error: matchError } = await serviceSupabase
-    .from("matches")
-    .insert(matchData as never)
-    .select()
-    .single();
-
-  if (matchError || !matchResultData) {
-    logger.error('matchmaking', 'Failed to create match record', matchError);
-    throw new Error("Failed to create match: " + matchError?.message);
-  }
-
-  const matchResult = matchResultData as { id: string };
-  logger.info('matchmaking', 'Match record created', { matchId: matchResult.id });
-
-  // Remove opponent from queue
-  logger.debug('matchmaking', 'Removing opponent from queue', { opponentId: opponent.user_id });
-  await serviceSupabase
-    .from("queue_ranked")
-    .delete()
-    .eq("user_id", opponent.user_id);
-
-  logger.debug('matchmaking', 'Creating runs for both players');
-  // Create run for Player 1 (the waiting opponent)
-  const player1RunData: RunInsert = {
-    user_id: opponent.user_id,
-    mode: "ranked",
-    route_id: routeResult.id,
-    match_id: matchResult.id,
-    start_title: route.startTitle,
-    target_title: route.targetTitle,
-    active_time_ms: 0,
-    clicks_count: 0,
-    misses_count: 0,
-    route_titles: [],
-    step_data: [],
-    is_completed: false,
-  };
-
-  const { data: player1RunResultData, error: player1RunError } = await serviceSupabase
-    .from("runs")
-    .insert(player1RunData as never)
-    .select()
-    .single();
-
-  if (player1RunError) {
-    logger.error('matchmaking', 'Failed to create run for player 1', player1RunError);
-    throw new Error("Failed to create run for opponent");
-  }
-
-  const player1RunResult = player1RunResultData as { id: string };
-  logger.debug('matchmaking', 'Player 1 run created', { runId: player1RunResult.id });
-
-  // Create run for Player 2 (current user)
-  const player2RunData: RunInsert = {
-    user_id: userId,
-    mode: "ranked",
-    route_id: routeResult.id,
-    match_id: matchResult.id,
-    start_title: route.startTitle,
-    target_title: route.targetTitle,
-    active_time_ms: 0,
-    clicks_count: 0,
-    misses_count: 0,
-    route_titles: [],
-    step_data: [],
-    is_completed: false,
-  };
-
-  const { data: player2RunResultData, error: player2RunError } = await userSupabase
-    .from("runs")
-    .insert(player2RunData as never)
-    .select()
-    .single();
-
-  if (player2RunError || !player2RunResultData) {
-    logger.error('matchmaking', 'Failed to create run for player 2', player2RunError);
-    throw new Error("Failed to create run: " + player2RunError?.message);
-  }
-
-  const player2RunResult = player2RunResultData as { id: string };
-  logger.debug('matchmaking', 'Player 2 run created', { runId: player2RunResult.id });
-
-  // Update match with run IDs
-  logger.debug('matchmaking', 'Updating match with run IDs');
-  await serviceSupabase
-    .from("matches")
-    .update({
-      player1_run_id: player1RunResult.id,
-      player2_run_id: player2RunResult.id,
-    } as never)
-    .eq("id", matchResult.id);
-
-  logger.info('matchmaking', 'Match creation complete', {
-    matchId: matchResult.id,
-    player1RunId: player1RunResult.id,
-    player2RunId: player2RunResult.id
-  });
-
-  revalidatePath("/play");
-
-  return {
-    status: "matched" as const,
-    matchId: matchResult.id,
-    runId: player2RunResult.id,
-    startTime,
-    route: {
-      startTitle: route.startTitle,
-      targetTitle: route.targetTitle,
-    },
-    opponent: {
-      elo: opponent.elo_rating,
-    },
-  };
 }
 
 export async function leaveMatchmakingQueue() {

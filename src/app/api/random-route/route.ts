@@ -1,71 +1,6 @@
 import { NextResponse } from "next/server";
 import { rateLimit } from "@/lib/rate-limit";
-import { getPopularArticle, getCategoricallyUnrelatedPair } from "@/lib/articles";
-
-const WIKI_API_BASE = "https://en.wikipedia.org/w/api.php";
-
-/**
- * Gets truly random articles from Wikipedia
- */
-async function getRandomArticles(count: number): Promise<string[]> {
-  const params = new URLSearchParams({
-    action: "query",
-    format: "json",
-    list: "random",
-    rnnamespace: "0",
-    rnlimit: String(count * 5),
-    origin: "*",
-  });
-
-  try {
-    const response = await fetch(`${WIKI_API_BASE}?${params}`);
-    const data = await response.json();
-
-    if (data.query?.random) {
-      return data.query.random
-        .filter((article: { title: string }) =>
-          article.title.length > 4 &&
-          !article.title.includes("(disambiguation)") &&
-          !article.title.startsWith("List of") &&
-          !article.title.includes(":")
-        )
-        .slice(0, count)
-        .map((article: { title: string }) => article.title);
-    }
-  } catch (error) {
-    console.error("Failed to fetch random articles:", error);
-  }
-
-  return [];
-}
-
-/**
- * Validates that an article exists and has enough outgoing links
- */
-async function validateArticleHasLinks(title: string): Promise<boolean> {
-  const params = new URLSearchParams({
-    action: "parse",
-    page: title,
-    format: "json",
-    origin: "*",
-    prop: "links",
-  });
-
-  try {
-    const response = await fetch(`${WIKI_API_BASE}?${params}`);
-    const data = await response.json();
-
-    if (data.error) return false;
-
-    const links = data.parse?.links?.filter(
-      (l: { ns: number }) => l.ns === 0
-    ) || [];
-
-    return links.length >= 10;
-  } catch {
-    return false;
-  }
-}
+import { generateRandomRoute } from "@/lib/wiki/randomRoute";
 
 export async function GET(request: Request) {
   const ip = request.headers.get("x-forwarded-for") ?? "unknown";
@@ -76,60 +11,8 @@ export async function GET(request: Request) {
 
   try {
     const { searchParams } = new URL(request.url);
-    const mode = searchParams.get("mode");
-
-    // Determine difficulty
-    let difficulty: string;
-    if (mode === "ranked") {
-      // Ranked distribution: 40% easy, 50% medium, 10% hard
-      const roll = Math.random();
-      if (roll < 0.4) difficulty = "easy";
-      else if (roll < 0.9) difficulty = "medium";
-      else difficulty = "hard";
-    } else {
-      const difficulties = ["easy", "medium", "hard"];
-      difficulty = difficulties[Math.floor(Math.random() * difficulties.length)];
-    }
-
-    let startTitle: string | null = null;
-    let targetTitle: string | null = null;
-
-    if (difficulty === "easy") {
-      // Both articles from well-known list
-      startTitle = getPopularArticle();
-      targetTitle = getPopularArticle();
-      while (targetTitle === startTitle) {
-        targetTitle = getPopularArticle();
-      }
-    } else if (difficulty === "medium") {
-      // Both well-known but from different categories
-      const pair = getCategoricallyUnrelatedPair();
-      startTitle = pair.start;
-      targetTitle = pair.target;
-    } else {
-      // Hard: random start, well-known destination
-      const randomArticles = await getRandomArticles(10);
-      for (const candidate of randomArticles) {
-        const valid = await validateArticleHasLinks(candidate);
-        if (valid) {
-          startTitle = candidate;
-          break;
-        }
-      }
-      if (!startTitle) {
-        startTitle = randomArticles[0] || getPopularArticle();
-      }
-      targetTitle = getPopularArticle();
-      while (targetTitle === startTitle) {
-        targetTitle = getPopularArticle();
-      }
-    }
-
-    return NextResponse.json({
-      startTitle,
-      targetTitle,
-      difficulty,
-    });
+    const route = await generateRandomRoute(searchParams.get("mode"));
+    return NextResponse.json(route);
   } catch (error) {
     console.error("Failed to generate random route:", error);
     return NextResponse.json(
