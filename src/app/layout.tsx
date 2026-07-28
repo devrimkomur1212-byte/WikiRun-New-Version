@@ -5,6 +5,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/layout/ThemeProvider";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
+import { PresenceTracker } from "@/components/presence/PresenceTracker";
 import { baseMetadata } from "@/lib/seo/metadata";
 import { organizationSchema, websiteSchema, gameSchema, generateStructuredData } from "@/lib/seo/structured-data";
 
@@ -54,6 +55,7 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
+          <PresenceTracker />
           <div className="min-h-screen flex flex-col bg-background">
             <Navbar />
             <main className="flex-1">

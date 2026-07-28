@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { RANKS } from "@/lib/elo/ranks";
 import { checkPendingMatch } from "@/app/actions/queueRanked";
 import { MatchmakingQueue } from "@/components/matchmaking/MatchmakingQueue";
+import { LivePlayerBadge } from "@/components/presence/LivePlayerBadge";
 import type { Tables } from "@/types/database.types";
 
 type Profile = Tables<"profiles">;
@@ -102,6 +103,9 @@ export default function PlayPage() {
           Navigate from a random start article to a random target article.
           Complete your run as fast as possible and climb the ELO leaderboard!
         </p>
+        <div className="mt-5">
+          <LivePlayerBadge />
+        </div>
       </div>
 
       {/* User Stats Card (if logged in) */}
