@@ -1,4 +1,4 @@
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://wikirun.com";
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://www.wiki-speedrun.com";
 
 export const organizationSchema = {
   "@context": "https://schema.org",

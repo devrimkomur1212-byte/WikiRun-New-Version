@@ -2,7 +2,7 @@ import { Metadata } from "next";
 
 const APP_NAME = "WikiRun";
 const APP_DESCRIPTION = "Race through Wikipedia articles in this competitive speedrun game. Navigate from one article to another as fast as possible. Compete in ranked matches or practice in training mode.";
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://wikirun.com";
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://www.wiki-speedrun.com";
 
 export const baseMetadata: Metadata = {
   metadataBase: new URL(APP_URL),

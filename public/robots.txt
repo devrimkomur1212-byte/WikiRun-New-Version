@@ -19,4 +19,4 @@ Allow: /leaderboard
 Allow: /dashboard
 
 # Sitemap
-Sitemap: https://wikirun.com/sitemap.xml
+Sitemap: https://www.wiki-speedrun.com/sitemap.xml
