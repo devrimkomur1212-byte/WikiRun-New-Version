@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createPageMetadata } from "@/lib/seo/metadata";
+import { PatchNotes } from "@/components/about/PatchNotes";
 
 export const metadata = createPageMetadata(
   "About",
@@ -132,6 +133,9 @@ export default function AboutPage() {
             </p>
           </div>
         </section>
+
+        {/* Patch notes */}
+        <PatchNotes />
 
         {/* CTA */}
         <div className="text-center pt-4">
