@@ -21,10 +21,24 @@ export function initPostHogIfConsented() {
 
   posthog.init(POSTHOG_KEY, {
     api_host: POSTHOG_HOST,
-    defaults: "2025-05-24", // includes SPA history-change pageviews
+    defaults: "2025-05-24",
+    // PostHog's documented App Router pattern: auto-capture misses SPA
+    // navigations, so PostHogInit captures $pageview on route changes
+    capture_pageview: false,
     capture_exceptions: true,
   });
   initialised = true;
+}
+
+/** Whether PostHog is running (i.e. consent given and init completed). */
+export function isPostHogReady() {
+  return initialised;
+}
+
+/** Manually capture a pageview for the current URL. */
+export function capturePageview() {
+  if (!initialised) return;
+  posthog.capture("$pageview", { $current_url: window.location.href });
 }
 
 /** Capture an event. Silently no-ops when PostHog isn't running (no consent). */
