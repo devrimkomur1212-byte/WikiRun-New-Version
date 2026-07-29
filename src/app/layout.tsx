@@ -6,6 +6,7 @@ import { ThemeProvider } from "@/components/layout/ThemeProvider";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { PresenceTracker } from "@/components/presence/PresenceTracker";
+import { CookieConsent } from "@/components/consent/CookieConsent";
 import { baseMetadata } from "@/lib/seo/metadata";
 import { organizationSchema, websiteSchema, gameSchema, generateStructuredData } from "@/lib/seo/structured-data";
 
@@ -65,6 +66,7 @@ export default function RootLayout({
             </main>
             <Footer />
           </div>
+          <CookieConsent />
         </ThemeProvider>
       </body>
     </html>
