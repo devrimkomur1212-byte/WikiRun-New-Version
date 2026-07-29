@@ -1,5 +1,11 @@
 "use client";
 
+import Link from "next/link";
+
+// How long to wait before suggesting training — long enough that a normal
+// match would have been found by now
+const QUIET_QUEUE_SECONDS = 60;
+
 interface QueueTimerProps {
   seconds: number;
   elo: number;
@@ -50,6 +56,21 @@ export function QueueTimer({ seconds, elo, onCancel, isPollingMode }: QueueTimer
           {eloRange < 200 ? "Search range expands over time (max: ±200)" : "Maximum search range reached"}
         </div>
       </div>
+
+      {seconds >= QUIET_QUEUE_SECONDS && (
+        <div className="mb-6 p-4 rounded-xl border border-border/40 bg-secondary/30 animate-fade-in">
+          <p className="text-sm text-muted-foreground">
+            Seems like no one is playing at the moment.{" "}
+            <Link
+              href="/training"
+              className="text-primary hover:text-primary/80 font-medium transition-colors"
+            >
+              Try training instead
+            </Link>
+            .
+          </p>
+        </div>
+      )}
 
       {isPollingMode && (
         <div className="text-xs text-muted-foreground/70 mb-4">

@@ -11,11 +11,13 @@ const POLLING_INTERVAL_MS = 3000; // Poll every 3 seconds
 interface UseMatchmakingPollingOptions {
   enabled: boolean;
   onMatchFound: (match: MatchFoundEvent) => void;
+  onAuthExpired?: () => void;
 }
 
 export function useMatchmakingPolling({
   enabled,
   onMatchFound,
+  onAuthExpired,
 }: UseMatchmakingPollingOptions) {
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const isPollingRef = useRef(false);
@@ -52,6 +54,12 @@ export function useMatchmakingPolling({
         logger.debug('polling', 'Actively trying to match...');
         const matchResult = await joinMatchmakingQueue();
 
+        if (matchResult.status === "unauthorized") {
+          logger.warn('polling', 'Session expired while queueing');
+          onAuthExpired?.();
+          return;
+        }
+
         if (matchResult.status === "matched") {
           logger.info('polling', 'Match created via active polling!', {
             matchId: matchResult.matchId,
@@ -74,7 +82,7 @@ export function useMatchmakingPolling({
     } finally {
       isPollingRef.current = false;
     }
-  }, [onMatchFound]);
+  }, [onMatchFound, onAuthExpired]);
 
   useEffect(() => {
     if (!enabled) {

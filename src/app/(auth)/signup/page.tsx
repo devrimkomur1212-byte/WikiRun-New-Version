@@ -62,7 +62,9 @@ export default function SignupPage() {
 
     track("user_signed_up", { method: "email" });
 
-    router.push("/dashboard");
+    // Straight into the game — a brand-new account has nothing to show on
+    // the dashboard, which is where new players were being dropped
+    router.push("/play");
     router.refresh();
   };
 

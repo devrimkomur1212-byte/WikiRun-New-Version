@@ -32,8 +32,11 @@ export async function joinMatchmakingQueue() {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // Returned rather than thrown: the client polls this every 3s, and Next.js
+  // masks thrown server-action messages in production, so a expired session
+  // used to surface as an unrecognisable error loop
   if (!user) {
-    throw new Error("Unauthorized");
+    return { status: "unauthorized" as const };
   }
 
   // Settle any timed-out matches first so a stale pending match can't

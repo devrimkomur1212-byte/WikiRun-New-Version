@@ -8,6 +8,10 @@ export async function GET(request: NextRequest) {
   const code = requestUrl.searchParams.get("code");
   const origin = requestUrl.origin;
 
+  // Google accounts still carrying an auto-generated username are signing up
+  // for the first time — send them to the game, not an empty dashboard
+  let isNewSignup = false;
+
   if (code) {
     const cookieStore = await cookies();
 
@@ -45,6 +49,7 @@ export async function GET(request: NextRequest) {
 
       // If username is auto-generated (starts with user_), replace with email prefix
       if (profile?.username?.startsWith("user_")) {
+        isNewSignup = true;
         const emailPrefix = user.email?.split("@")[0] || "";
         // Clean to alphanumeric + underscore only
         let baseUsername = emailPrefix.replace(/[^a-zA-Z0-9_]/g, "");
@@ -79,6 +84,7 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  const next = requestUrl.searchParams.get("next") || "/dashboard";
+  const next =
+    requestUrl.searchParams.get("next") || (isNewSignup ? "/play" : "/dashboard");
   return NextResponse.redirect(`${origin}${next}`);
 }

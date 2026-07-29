@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { QueueTimer } from "./QueueTimer";
 import { MatchFoundOverlay } from "./MatchFoundOverlay";
 import {
@@ -56,6 +57,7 @@ export function MatchmakingQueue({
   const [queueTime, setQueueTime] = useState(0);
   const [connectionState, setConnectionState] = useState<'idle' | 'connecting' | 'ready'>('idle');
   const [usePollingFallback, setUsePollingFallback] = useState(false);
+  const [authExpired, setAuthExpired] = useState(false);
   const matchSoundPlayedRef = useRef(false);
   const lastTickSecondRef = useRef<number | null>(null);
 
@@ -91,10 +93,13 @@ export function MatchmakingQueue({
     onMatchFound: handleMatchFound,
   });
 
+  const handleAuthExpired = useCallback(() => setAuthExpired(true), []);
+
   // Polling fallback when realtime fails
   useMatchmakingPolling({
-    enabled: state.status === 'searching',
+    enabled: state.status === 'searching' && !authExpired,
     onMatchFound: handleMatchFound,
+    onAuthExpired: handleAuthExpired,
   });
 
   // Step 1: Start connection on mount
@@ -116,6 +121,12 @@ export function MatchmakingQueue({
       try {
         const result = await joinMatchmakingQueue();
         logger.info('matchmaking', 'Queue join result', result);
+
+        if (result.status === "unauthorized") {
+          logger.warn('matchmaking', 'Session expired before queueing');
+          setAuthExpired(true);
+          return;
+        }
 
         if (result.status === "matched") {
           // Immediately matched
@@ -246,6 +257,34 @@ export function MatchmakingQueue({
     }
     onCancel();
   };
+
+  // Session expired mid-queue — previously this looped silently and the
+  // player waited for a match that could never arrive
+  if (authExpired) {
+    return (
+      <div className="rounded-2xl border border-border/40 bg-card p-10 text-center shadow-soft-lg">
+        <h2 className="text-h2 mb-3">Session expired</h2>
+        <p className="text-muted-foreground mb-8">
+          You have been signed out, so we could not keep you in the queue.
+          Sign in again to play.
+        </p>
+        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+          <Link
+            href="/login?redirect=/play"
+            className="inline-flex items-center justify-center rounded-xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-[0_4px_12px_-2px_hsl(var(--primary)/0.4)] hover:translate-y-[-1px] transition-all duration-200"
+          >
+            Sign in
+          </Link>
+          <button
+            onClick={onCancel}
+            className="inline-flex items-center justify-center rounded-xl border border-border/60 bg-card px-6 py-3 text-sm font-semibold hover:bg-secondary transition-all duration-200"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // Render based on state
   if (state.status === "matched" || state.status === "countdown") {
