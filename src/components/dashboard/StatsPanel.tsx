@@ -47,26 +47,43 @@ function getRangeStart(range: DateRange): Date | null {
   }
 }
 
-// Cardinal spline — smooth rolling curves like Chess.com
-// Low tension (0.2) prevents overshooting while avoiding flat stair-steps
-function smoothCurvePath(pts: { x: number; y: number }[], tension = 0.2): string {
+// Monotone cubic (Fritsch–Carlson) — smooth like Chess.com, but the curve
+// never overshoots past the data points, so no phantom dips/bumps between
+// matches (the cardinal spline this replaces invented ELO values you never had)
+function smoothCurvePath(pts: { x: number; y: number }[]): string {
   if (pts.length < 2) return "";
   if (pts.length === 2) return `M ${pts[0].x},${pts[0].y} L ${pts[1].x},${pts[1].y}`;
 
+  const n = pts.length;
+  const dx: number[] = [];
+  const slope: number[] = [];
+  for (let i = 0; i < n - 1; i++) {
+    const d = pts[i + 1].x - pts[i].x;
+    dx.push(d);
+    slope.push(d === 0 ? 0 : (pts[i + 1].y - pts[i].y) / d);
+  }
+
+  // Tangents: zero at local extrema, harmonic mean elsewhere
+  const tangent: number[] = [slope[0]];
+  for (let i = 1; i < n - 1; i++) {
+    if (slope[i - 1] * slope[i] <= 0) {
+      tangent.push(0);
+    } else {
+      const w1 = dx[i - 1] + 2 * dx[i];
+      const w2 = 2 * dx[i - 1] + dx[i];
+      tangent.push((w1 + w2) / (w1 / slope[i - 1] + w2 / slope[i]));
+    }
+  }
+  tangent.push(slope[n - 2]);
+
   let d = `M ${pts[0].x},${pts[0].y}`;
-
-  for (let i = 0; i < pts.length - 1; i++) {
-    const p0 = pts[Math.max(0, i - 1)];
-    const p1 = pts[i];
-    const p2 = pts[i + 1];
-    const p3 = pts[Math.min(pts.length - 1, i + 2)];
-
-    const cp1x = p1.x + (p2.x - p0.x) * tension;
-    const cp1y = p1.y + (p2.y - p0.y) * tension;
-    const cp2x = p2.x - (p3.x - p1.x) * tension;
-    const cp2y = p2.y - (p3.y - p1.y) * tension;
-
-    d += ` C ${cp1x},${cp1y} ${cp2x},${cp2y} ${p2.x},${p2.y}`;
+  for (let i = 0; i < n - 1; i++) {
+    const third = dx[i] / 3;
+    const cp1x = pts[i].x + third;
+    const cp1y = pts[i].y + tangent[i] * third;
+    const cp2x = pts[i + 1].x - third;
+    const cp2y = pts[i + 1].y - tangent[i + 1] * third;
+    d += ` C ${cp1x},${cp1y} ${cp2x},${cp2y} ${pts[i + 1].x},${pts[i + 1].y}`;
   }
 
   return d;
@@ -81,8 +98,8 @@ function EloChart({ points }: { points: { date: string; elo: number }[] }) {
   );
 
   const W = 800;
-  const H = 200;
-  const PAD = { top: 15, right: 20, bottom: 5, left: 50 };
+  const H = 220;
+  const PAD = { top: 15, right: 20, bottom: 26, left: 50 };
   const plotW = W - PAD.left - PAD.right;
   const plotH = H - PAD.top - PAD.bottom;
 
@@ -94,8 +111,9 @@ function EloChart({ points }: { points: { date: string; elo: number }[] }) {
     const maxElo = Math.max(...elos);
     const eloRange = maxElo - minElo || 50;
 
-    // Wide Y-axis: minimum 300pt visual range for smooth appearance
-    const visualRange = Math.max(eloRange * 1.6, 300);
+    // Y-axis: enough headroom to keep swings calm, but tight enough that
+    // progress is actually visible (300pt minimum flattened the line)
+    const visualRange = Math.max(eloRange * 1.5, 120);
     const center = (minElo + maxElo) / 2;
     const visualMin = center - visualRange / 2;
     const visualMax = center + visualRange / 2;
@@ -128,7 +146,15 @@ function EloChart({ points }: { points: { date: string; elo: number }[] }) {
       yLabels.push(v);
     }
 
-    return { pts, curvePath, areaPath, yLabels, yScale, xScale, minTime, timeRange };
+    // X-axis date ticks, evenly spaced across the time range
+    const tickCount = Math.min(4, points.length);
+    const xTicks: { x: number; date: string }[] = [];
+    for (let i = 0; i < tickCount; i++) {
+      const t = minTime + (timeRange * i) / Math.max(1, tickCount - 1);
+      xTicks.push({ x: xScale(t), date: new Date(t).toISOString() });
+    }
+
+    return { pts, curvePath, areaPath, yLabels, xTicks, yScale, xScale, minTime, timeRange };
   }, [points, plotW, plotH]);
 
   const handleMouseMove = useCallback(
@@ -164,7 +190,7 @@ function EloChart({ points }: { points: { date: string; elo: number }[] }) {
     );
   }
 
-  const { pts, curvePath, areaPath, yLabels, yScale } = chartData;
+  const { pts, curvePath, areaPath, yLabels, xTicks, yScale } = chartData;
 
   const formatDate = (iso: string) => {
     const d = new Date(iso);
@@ -209,6 +235,20 @@ function EloChart({ points }: { points: { date: string; elo: number }[] }) {
             {v}
           </text>
         </g>
+      ))}
+
+      {/* X-axis date labels */}
+      {xTicks.map((tick, i) => (
+        <text
+          key={i}
+          x={tick.x}
+          y={H - 8}
+          textAnchor={i === 0 ? "start" : i === xTicks.length - 1 ? "end" : "middle"}
+          fontSize="11"
+          fill="hsl(var(--muted-foreground))"
+        >
+          {formatDate(tick.date)}
+        </text>
       ))}
 
       {/* Area fill */}

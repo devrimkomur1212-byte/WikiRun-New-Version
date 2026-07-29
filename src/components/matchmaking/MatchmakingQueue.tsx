@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { QueueTimer } from "./QueueTimer";
 import { MatchFoundOverlay } from "./MatchFoundOverlay";
@@ -15,6 +15,11 @@ import {
 } from "@/app/actions/joinMatchmakingQueue";
 import { logger } from "@/lib/logger";
 import { track } from "@/lib/analytics/posthog";
+import {
+  playMatchFoundSound,
+  playCountdownTickSound,
+  playGoSound,
+} from "@/lib/sound/gameSounds";
 
 type MatchmakingState =
   | { status: "idle" }
@@ -51,6 +56,17 @@ export function MatchmakingQueue({
   const [queueTime, setQueueTime] = useState(0);
   const [connectionState, setConnectionState] = useState<'idle' | 'connecting' | 'ready'>('idle');
   const [usePollingFallback, setUsePollingFallback] = useState(false);
+  const matchSoundPlayedRef = useRef(false);
+  const lastTickSecondRef = useRef<number | null>(null);
+
+  // Chime once when a match is found — players wait with the tab in the
+  // background, so this is the signal to come back
+  useEffect(() => {
+    if (state.status !== "matched" && state.status !== "countdown") return;
+    if (matchSoundPlayedRef.current) return;
+    matchSoundPlayedRef.current = true;
+    playMatchFoundSound();
+  }, [state.status]);
 
   // Handle match found from realtime subscription or polling
   const handleMatchFound = useCallback((match: MatchFoundEvent) => {
@@ -178,11 +194,18 @@ export function MatchmakingQueue({
 
       if (remaining <= 0) {
         // Time's up - navigate to game
+        playGoSound();
         router.push(`/run/${runId}/article/${encodeURIComponent(startTitle)}`);
         return true; // Signal to stop interval
       }
 
       const secondsLeft = Math.ceil(remaining / 1000);
+
+      // Tick once per second for the final 3... 2... 1...
+      if (secondsLeft <= 3 && secondsLeft !== lastTickSecondRef.current) {
+        lastTickSecondRef.current = secondsLeft;
+        playCountdownTickSound();
+      }
 
       setState((prev) => {
         if (prev.status === "matched" || prev.status === "countdown") {
