@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ArticleSearch } from "@/components/training/ArticleSearch";
+import { track } from "@/lib/analytics/posthog";
 
 type Difficulty = "easy" | "medium" | "hard";
 
@@ -108,6 +109,7 @@ export default function TrainingPage() {
         })
       );
 
+      track("training_run_started", { difficulty });
       router.push(`/run/${runId}/article/${encodeURIComponent(route.start_title)}`);
     } catch (error) {
       console.error("Failed to generate route:", error);
@@ -161,6 +163,7 @@ export default function TrainingPage() {
         })
       );
 
+      track("training_run_started", { difficulty: "custom" });
       router.push(`/run/${runId}/article/${encodeURIComponent(customStart.trim())}`);
     } catch {
       setStartingCustom(false);

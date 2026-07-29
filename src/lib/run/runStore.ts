@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { RunStep } from "@/types/run.types";
+import { track } from "@/lib/analytics/posthog";
 
 // Helper types and functions for session storage persistence
 const STORAGE_KEY_PREFIX = "run-state-";
@@ -354,6 +355,14 @@ export const useRunStore = create<RunState>((set, get) => ({
       timerRunning: false,
       activeTimeMs: Math.round(finalActiveTime),
       steps: updatedSteps,
+    });
+
+    track("run_completed", {
+      mode: state.mode,
+      active_time_ms: Math.round(finalActiveTime),
+      clicks: state.clicksCount,
+      misses: state.missesCount,
+      target_reached: state.isTargetReached,
     });
 
     // Clear session storage - run is complete

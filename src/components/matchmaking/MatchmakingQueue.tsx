@@ -14,6 +14,7 @@ import {
   leaveMatchmakingQueue,
 } from "@/app/actions/joinMatchmakingQueue";
 import { logger } from "@/lib/logger";
+import { track } from "@/lib/analytics/posthog";
 
 type MatchmakingState =
   | { status: "idle" }
@@ -53,6 +54,7 @@ export function MatchmakingQueue({
 
   // Handle match found from realtime subscription or polling
   const handleMatchFound = useCallback((match: MatchFoundEvent) => {
+    track("match_found", { opponent_elo: match.opponentElo });
     setState({
       status: "matched",
       matchId: match.matchId,
@@ -93,6 +95,7 @@ export function MatchmakingQueue({
     const startSearching = async () => {
       setConnectionState('ready');
       setState({ status: "searching", elo: userElo });
+      track("matchmaking_queue_joined", { elo: userElo });
 
       try {
         const result = await joinMatchmakingQueue();

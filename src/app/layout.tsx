@@ -7,6 +7,7 @@ import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { PresenceTracker } from "@/components/presence/PresenceTracker";
 import { CookieConsent } from "@/components/consent/CookieConsent";
+import { PostHogInit } from "@/components/analytics/PostHogInit";
 import { baseMetadata } from "@/lib/seo/metadata";
 import { organizationSchema, websiteSchema, gameSchema, generateStructuredData } from "@/lib/seo/structured-data";
 
@@ -56,6 +57,7 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
+          <PostHogInit />
           <PresenceTracker />
           <div className="min-h-screen flex flex-col bg-background">
             <Navbar />

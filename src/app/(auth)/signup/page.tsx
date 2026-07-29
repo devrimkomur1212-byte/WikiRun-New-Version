@@ -6,6 +6,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
 import { validateUsername } from "@/lib/validation/profanity";
+import { track } from "@/lib/analytics/posthog";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -58,6 +59,8 @@ export default function SignupPage() {
       setLoading(false);
       return;
     }
+
+    track("user_signed_up", { method: "email" });
 
     router.push("/dashboard");
     router.refresh();
