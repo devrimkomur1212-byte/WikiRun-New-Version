@@ -252,7 +252,7 @@ export default function PrivacyPolicyPage() {
               to exercise your privacy rights, please contact us at:
             </p>
             <p className="font-medium text-foreground">
-              Email: contact@wikirun.com
+              Email: devrim.komur@revolutionarymedia.co.uk
             </p>
           </div>
         </section>

@@ -5,7 +5,7 @@ export const organizationSchema = {
   "@type": "Organization",
   name: "WikiRun",
   url: APP_URL,
-  logo: `${APP_URL}/logo.png`,
+  logo: `${APP_URL}/android-chrome-512x512.png`,
 };
 
 export const websiteSchema = {

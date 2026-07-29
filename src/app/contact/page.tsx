@@ -33,10 +33,10 @@ export default function ContactPage() {
               For general inquiries, support requests, account issues, or privacy-related questions.
             </p>
             <a
-              href="mailto:contact@wikirun.com"
+              href="mailto:devrim.komur@revolutionarymedia.co.uk"
               className="text-primary hover:text-primary/80 font-medium transition-colors"
             >
-              contact@wikirun.com
+              devrim.komur@revolutionarymedia.co.uk
             </a>
           </div>
 

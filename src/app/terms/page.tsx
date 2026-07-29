@@ -196,7 +196,7 @@ export default function TermsPage() {
               If you have any questions about these Terms of Service, please contact us at:
             </p>
             <p className="font-medium text-foreground">
-              Email: contact@wikirun.com
+              Email: devrim.komur@revolutionarymedia.co.uk
             </p>
           </div>
         </section>

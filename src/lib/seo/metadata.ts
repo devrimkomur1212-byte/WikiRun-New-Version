@@ -76,7 +76,6 @@ export const baseMetadata: Metadata = {
     title: `${APP_NAME} - Wikipedia Speedrun Game`,
     description: APP_DESCRIPTION,
     images: ["/og-image.png"],
-    creator: "@wikirun",
   },
   alternates: {
     canonical: APP_URL,

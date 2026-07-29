@@ -29,24 +29,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.8,
     },
     {
-      url: `${APP_URL}/dashboard`,
-      lastModified: new Date(),
-      changeFrequency: "weekly" as const,
-      priority: 0.7,
-    },
-    {
-      url: `${APP_URL}/login`,
-      lastModified: new Date(),
-      changeFrequency: "monthly" as const,
-      priority: 0.5,
-    },
-    {
-      url: `${APP_URL}/signup`,
-      lastModified: new Date(),
-      changeFrequency: "monthly" as const,
-      priority: 0.5,
-    },
-    {
       url: `${APP_URL}/about`,
       lastModified: new Date(),
       changeFrequency: "monthly" as const,
