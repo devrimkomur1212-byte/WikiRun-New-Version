@@ -1,7 +1,7 @@
 import { Metadata } from "next";
 
 const APP_NAME = "WikiRun";
-const APP_DESCRIPTION = "Race through Wikipedia articles in this competitive speedrun game. Navigate from one article to another as fast as possible. Compete in ranked matches or practice in training mode.";
+const APP_DESCRIPTION = "A free Wikipedia speedrun game. Race from one Wikipedia article to another in as few clicks as you can, compete in ranked 1v1 matches, and climb the ELO leaderboard.";
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://www.wiki-speedrun.com";
 
 export const baseMetadata: Metadata = {
@@ -15,18 +15,18 @@ export const baseMetadata: Metadata = {
   authors: [{ name: APP_NAME }],
   generator: "Next.js",
   keywords: [
-    "wikipedia",
+    "wikipedia speedrun",
+    "wikipedia speedrun game",
+    "wiki speedrun",
+    "wikipedia racing game",
+    "wikipedia game",
     "speedrun",
-    "game",
-    "racing",
-    "puzzle",
-    "educational",
+    "wikirun",
+    "wiki race",
     "competitive",
     "multiplayer",
     "elo",
-    "ranking",
     "leaderboard",
-    "wikipedia game",
     "trivia",
     "knowledge",
   ],

@@ -12,16 +12,18 @@ export const websiteSchema = {
   "@context": "https://schema.org",
   "@type": "WebSite",
   name: "WikiRun",
+  alternateName: "WikiRun - Wikipedia Speedrun Game",
   url: APP_URL,
-  description: "Race through Wikipedia articles in this competitive speedrun game.",
+  description: "A free Wikipedia speedrun game. Race from one Wikipedia article to another using only the links on the page.",
 };
 
 export const gameSchema = {
   "@context": "https://schema.org",
   "@type": "Game",
   name: "WikiRun",
+  alternateName: "Wikipedia Speedrun",
   url: APP_URL,
-  description: "Race through Wikipedia articles. Navigate from one article to another as fast as possible. Compete in ranked matches or practice in training mode.",
+  description: "WikiRun is a free Wikipedia speedrun game. Race from one Wikipedia article to another in as few clicks as possible, compete in real-time ranked 1v1 matches, and climb the ELO leaderboard.",
   genre: ["Puzzle", "Educational", "Racing", "Multiplayer"],
   gamePlatform: "Web Browser",
   applicationCategory: "Game",

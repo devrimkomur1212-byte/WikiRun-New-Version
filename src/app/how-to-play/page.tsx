@@ -2,7 +2,7 @@ import Link from "next/link";
 import { createPageMetadata } from "@/lib/seo/metadata";
 
 export const metadata = createPageMetadata(
-  "How to Play",
+  "How to Speedrun Wikipedia",
   "Learn how to play WikiRun. Step-by-step guide to Wikipedia speedrunning, game modes, difficulty levels, scoring, and strategies to improve your runs.",
   "/how-to-play"
 );

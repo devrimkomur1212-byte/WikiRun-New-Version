@@ -1,11 +1,19 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { createPageMetadata } from "@/lib/seo/metadata";
 
-export const metadata = createPageMetadata(
-  "Home",
-  "Race through Wikipedia articles in this competitive speedrun game. Navigate from one article to another as fast as possible.",
-  "/"
-);
+// The title is absolute so the homepage leads with the phrase people search
+// for. It previously rendered as "Home | WikiRun" — no keywords at all.
+export const metadata: Metadata = {
+  ...createPageMetadata(
+    "Wikipedia Speedrun Game",
+    "Play WikiRun, the free Wikipedia speedrun game. Race from one Wikipedia article to another using only links, compete in real-time ranked matches, and climb the leaderboard.",
+    "/"
+  ),
+  title: {
+    absolute: "Wikipedia Speedrun Game - Race Through Wikipedia | WikiRun",
+  },
+};
 
 export default function Home() {
   return (
@@ -21,11 +29,15 @@ export default function Home() {
         <div className="space-y-6 animate-fade-in">
           <h1 className="text-display-sm sm:text-display tracking-tight">
             Wiki<span className="text-primary">Run</span>
+            <span className="block mt-4 text-xl sm:text-2xl font-medium text-muted-foreground">
+              The Wikipedia Speedrun Game
+            </span>
           </h1>
 
           <p className="text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-            Race through Wikipedia. Navigate from one article to another as fast as possible.
-            Compete in ranked matches or sharpen your skills in training mode.
+            Speedrun Wikipedia: race from one article to another using nothing but
+            the links on the page. Compete in real-time ranked matches or sharpen
+            your skills in training mode.
           </p>
         </div>
 
@@ -62,9 +74,10 @@ export default function Home() {
                 <path d="M16 3.13a4 4 0 0 1 0 7.75" />
               </svg>
             </div>
-            <h3 className="text-lg font-semibold mb-2">Async PvP</h3>
+            <h3 className="text-lg font-semibold mb-2">Live 1v1 Races</h3>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              Get matched with opponents on the same route. Complete your run anytime within 24 hours.
+              Get matched with an opponent near your rank and race the same route
+              head-to-head, in real time.
             </p>
           </div>
 
