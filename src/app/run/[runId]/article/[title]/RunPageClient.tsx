@@ -9,13 +9,15 @@ import { OpponentStatus } from "@/components/run/OpponentStatus";
 
 interface RunPageClientProps {
   runId: string;
-  mode: "ranked" | "training";
+  mode: "ranked" | "training" | "daily";
   startTitle: string;
   targetTitle: string;
   routeId: string | null;
   matchId: string | null;
   initialTitle: string;
   isClientSideRun: boolean;
+  /** Daily runs started with hints enabled show a target-linked indicator */
+  showHints?: boolean;
 }
 
 export function RunPageClient({
@@ -27,6 +29,7 @@ export function RunPageClient({
   matchId,
   initialTitle,
   isClientSideRun,
+  showHints = false,
 }: RunPageClientProps) {
   const router = useRouter();
   const hasInitialized = useRef(false);
@@ -81,7 +84,7 @@ export function RunPageClient({
 
   return (
     <div className="min-h-screen bg-background">
-      <RunHUD />
+      <RunHUD showHints={showHints} />
       <ArticleView
         runId={runId}
         isClientSideRun={isClientSideRun}

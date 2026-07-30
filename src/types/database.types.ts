@@ -18,6 +18,8 @@ export type Database = {
           elo_rating: number;
           games_played_ranked: number;
           is_pro: boolean;
+          daily_streak: number;
+          daily_last_played: string | null;
         };
         Insert: {
           id: string;
@@ -27,6 +29,8 @@ export type Database = {
           elo_rating?: number;
           games_played_ranked?: number;
           is_pro?: boolean;
+          daily_streak?: number;
+          daily_last_played?: string | null;
         };
         Update: {
           id?: string;
@@ -36,6 +40,8 @@ export type Database = {
           elo_rating?: number;
           games_played_ranked?: number;
           is_pro?: boolean;
+          daily_streak?: number;
+          daily_last_played?: string | null;
         };
         Relationships: [];
       };
@@ -140,7 +146,7 @@ export type Database = {
         Row: {
           id: string;
           user_id: string;
-          mode: "ranked" | "training";
+          mode: "ranked" | "training" | "daily";
           route_id: string | null;
           match_id: string | null;
           start_title: string;
@@ -153,12 +159,14 @@ export type Database = {
           is_flagged: boolean;
           is_completed: boolean;
           gave_up: boolean;
+          daily_challenge_id: string | null;
+          used_hints: boolean;
           created_at: string;
         };
         Insert: {
           id?: string;
           user_id: string;
-          mode: "ranked" | "training";
+          mode: "ranked" | "training" | "daily";
           route_id?: string | null;
           match_id?: string | null;
           start_title: string;
@@ -171,12 +179,14 @@ export type Database = {
           is_flagged?: boolean;
           is_completed?: boolean;
           gave_up?: boolean;
+          daily_challenge_id?: string | null;
+          used_hints?: boolean;
           created_at?: string;
         };
         Update: {
           id?: string;
           user_id?: string;
-          mode?: "ranked" | "training";
+          mode?: "ranked" | "training" | "daily";
           route_id?: string | null;
           match_id?: string | null;
           start_title?: string;
@@ -189,6 +199,8 @@ export type Database = {
           is_flagged?: boolean;
           is_completed?: boolean;
           gave_up?: boolean;
+          daily_challenge_id?: string | null;
+          used_hints?: boolean;
           created_at?: string;
         };
         Relationships: [];
@@ -235,6 +247,30 @@ export type Database = {
         };
         Relationships: [];
       };
+      daily_challenges: {
+        Row: {
+          id: string;
+          challenge_date: string;
+          start_title: string;
+          target_title: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          challenge_date: string;
+          start_title: string;
+          target_title: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          challenge_date?: string;
+          start_title?: string;
+          target_title?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       queue_ranked: {
         Row: {
           user_id: string;
@@ -277,6 +313,10 @@ export type Database = {
           opponent_elo: number;
           opponent_queued_at: string;
         }[];
+      };
+      current_challenge_date: {
+        Args: Record<string, never>;
+        Returns: string;
       };
     };
     Enums: {};

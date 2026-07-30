@@ -51,7 +51,7 @@ function clearSession(runId: string) {
 interface RunState {
   // Run metadata
   runId: string | null;
-  mode: "ranked" | "training" | null;
+  mode: "ranked" | "training" | "daily" | null;
   startTitle: string;
   targetTitle: string;
   routeId: string | null;
@@ -84,7 +84,7 @@ interface RunState {
   // Actions
   initializeRun: (data: {
     runId: string;
-    mode: "ranked" | "training";
+    mode: "ranked" | "training" | "daily";
     startTitle: string;
     targetTitle: string;
     routeId: string | null;

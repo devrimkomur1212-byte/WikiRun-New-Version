@@ -8,6 +8,7 @@ import { RANKS } from "@/lib/elo/ranks";
 import { checkPendingMatch } from "@/app/actions/queueRanked";
 import { MatchmakingQueue } from "@/components/matchmaking/MatchmakingQueue";
 import { LivePlayerBadge } from "@/components/presence/LivePlayerBadge";
+import { DailyChallengeCard } from "@/components/daily/DailyChallengeCard";
 import type { Tables } from "@/types/database.types";
 
 type Profile = Tables<"profiles">;
@@ -208,6 +209,8 @@ export default function PlayPage() {
 
         {/* Sidebar */}
         <div className="space-y-6">
+          <DailyChallengeCard />
+
           {/* Rank Tiers */}
           <div className="rounded-2xl border border-border/40 bg-card p-6 shadow-soft">
             <h3 className="text-lg font-semibold mb-4">Rank Tiers</h3>

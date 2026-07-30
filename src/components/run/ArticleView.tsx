@@ -6,6 +6,8 @@ import { useRunStore } from "@/lib/run/runStore";
 import { rewriteWikiLinks } from "@/lib/wiki/rewriteLinks";
 import { ArticleSkeleton } from "./ArticleSkeleton";
 import { submitRun } from "@/app/actions/submitRun";
+import { recordDailyCompletion } from "@/app/actions/dailyChallenge";
+import { currentChallengeDate } from "@/lib/daily/challengeDate";
 import DOMPurify from "dompurify";
 
 // Configure DOMPurify to add lazy loading to images (performance optimization)
@@ -160,6 +162,9 @@ export function ArticleView({
       );
       router.push(`/results/training/${runId}`);
     } else {
+      const isDaily = useRunStore.getState().mode === "daily";
+      const resultsPath = isDaily ? `/results/daily/${runId}` : `/results/${runId}`;
+
       try {
         await submitRun(runId, {
           active_time_ms: runData.activeTimeMs,
@@ -168,10 +173,14 @@ export function ArticleView({
           route_titles: runData.routeTitles,
           step_data: runData.steps,
         });
-        router.push(`/results/${runId}`);
+        if (isDaily) {
+          // Streak only advances on a finished daily run
+          await recordDailyCompletion(currentChallengeDate());
+        }
+        router.push(resultsPath);
       } catch (error) {
         console.error("Failed to submit run:", error);
-        router.push(`/results/${runId}`);
+        router.push(resultsPath);
       }
     }
   };

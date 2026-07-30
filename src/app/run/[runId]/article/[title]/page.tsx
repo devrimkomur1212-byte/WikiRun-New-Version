@@ -61,20 +61,21 @@ export default async function RunArticlePage({ params }: Props) {
   const run = runData as RunRow;
 
   if (run.is_completed) {
-    redirect(`/results/${runId}`);
+    redirect(run.mode === "daily" ? `/results/daily/${runId}` : `/results/${runId}`);
   }
 
   // Client fetches article directly from Wikipedia (faster)
   return (
     <RunPageClient
       runId={runId}
-      mode={run.mode as "ranked" | "training"}
+      mode={run.mode as "ranked" | "training" | "daily"}
       startTitle={run.start_title}
       targetTitle={run.target_title}
       routeId={run.route_id}
       matchId={run.match_id}
       initialTitle={decodedTitle}
       isClientSideRun={false}
+      showHints={run.used_hints}
     />
   );
 }

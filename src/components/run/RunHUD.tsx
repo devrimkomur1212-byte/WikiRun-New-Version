@@ -6,10 +6,16 @@ import { useRunStore, selectCurrentTime } from "@/lib/run/runStore";
 import { Timer } from "./Timer";
 import { giveUpRankedRun } from "@/app/actions/submitRun";
 
-export function RunHUD() {
+interface RunHUDProps {
+  /** Daily runs started with hints show when the target is one click away */
+  showHints?: boolean;
+}
+
+export function RunHUD({ showHints = false }: RunHUDProps) {
   const router = useRouter();
   const startTitle = useRunStore((state) => state.startTitle);
   const targetTitle = useRunStore((state) => state.targetTitle);
+  const outgoingLinks = useRunStore((state) => state.outgoingLinks);
   const currentTitle = useRunStore((state) => state.currentTitle);
   const clicksCount = useRunStore((state) => state.clicksCount);
   const routeTitles = useRunStore((state) => state.routeTitles);
@@ -21,6 +27,12 @@ export function RunHUD() {
 
   const [confirmingGiveUp, setConfirmingGiveUp] = useState(false);
   const [isGivingUp, setIsGivingUp] = useState(false);
+
+  const targetIsLinkedHere =
+    showHints &&
+    outgoingLinks.some(
+      (link) => link.toLowerCase() === targetTitle.toLowerCase()
+    );
 
   const handleGiveUpTraining = () => {
     const runData = completeRun();
@@ -78,6 +90,11 @@ export function RunHUD() {
             <span className="px-3 py-1.5 rounded-lg bg-primary/10 text-primary font-semibold">
               {targetTitle}
             </span>
+            {showHints && targetIsLinkedHere && (
+              <span className="px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-500 text-xs font-semibold animate-fade-in">
+                Target is on this page
+              </span>
+            )}
           </div>
 
           {/* Timer and stats */}
