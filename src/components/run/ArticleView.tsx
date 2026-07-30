@@ -4,6 +4,7 @@ import { useEffect, useRef, useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useRunStore } from "@/lib/run/runStore";
 import { rewriteWikiLinks } from "@/lib/wiki/rewriteLinks";
+import { ArticleSkeleton } from "./ArticleSkeleton";
 import { submitRun } from "@/app/actions/submitRun";
 import DOMPurify from "dompurify";
 
@@ -111,6 +112,9 @@ export function ArticleView({
         resumeTimer();
       } catch (error) {
         console.error("Failed to load article:", error);
+        // The timer only starts once an article is on screen, so it must be
+        // started here too or a failed first fetch leaves the clock stopped
+        resumeTimer();
         setLoadingState(false);
       }
     };
@@ -228,15 +232,7 @@ export function ArticleView({
   );
 
   if (loading) {
-    return (
-      <div className="pt-32 pb-8 px-4">
-        <div className="max-w-4xl mx-auto">
-          <div className="animate-pulse text-muted-foreground text-center py-12">
-            Loading article...
-          </div>
-        </div>
-      </div>
-    );
+    return <ArticleSkeleton />;
   }
 
   return (

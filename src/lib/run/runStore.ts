@@ -184,9 +184,11 @@ export const useRunStore = create<RunState>((set, get) => ({
           timestamp_left: null,
           had_direct_link_to_target: false,
         }],
-        // Resume timer from saved time
-        timerRunning: true,
-        timerStartedAt: performance.now(),
+        // Timer stays stopped until the article is on screen — ArticleView
+        // calls resumeTimer() once it has rendered. Starting here would make
+        // the clock tick during the load and then visibly jump backwards.
+        timerRunning: false,
+        timerStartedAt: null,
       });
     } else {
       set({
@@ -209,9 +211,9 @@ export const useRunStore = create<RunState>((set, get) => ({
             had_direct_link_to_target: false,
           },
         ],
-        // Start timer immediately on initialization
-        timerRunning: true,
-        timerStartedAt: performance.now(),
+        // Started by ArticleView once the first article has rendered
+        timerRunning: false,
+        timerStartedAt: null,
       });
     }
 
