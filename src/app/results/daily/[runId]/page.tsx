@@ -80,28 +80,83 @@ export default async function DailyResultsPage({ params }: Props) {
       )}
 
       {you && (
-        <div className="grid grid-cols-2 gap-4 animate-slide-up">
+        <div className="grid grid-cols-3 gap-4 animate-slide-up">
           <div className="rounded-2xl border border-border/40 bg-card p-5 text-center shadow-soft">
-            <div className="text-3xl font-bold font-mono tracking-tight">
+            <div className="text-2xl sm:text-3xl font-bold font-mono tracking-tight">
               {formatTime(you.timeMs)}
             </div>
-            <div className="text-sm text-muted-foreground mt-1">Your time</div>
+            <div className="text-sm text-muted-foreground mt-1">Time</div>
             {stats.meanTimeMs !== null && stats.finishers > 1 && (
               <div className="text-xs text-muted-foreground/80 mt-2">
-                Average {formatTime(stats.meanTimeMs)}
+                Avg {formatTime(stats.meanTimeMs)}
               </div>
             )}
           </div>
 
           <div className="rounded-2xl border border-border/40 bg-card p-5 text-center shadow-soft">
-            <div className="text-3xl font-bold tracking-tight">{you.clicks}</div>
-            <div className="text-sm text-muted-foreground mt-1">Your clicks</div>
+            <div className="text-2xl sm:text-3xl font-bold tracking-tight">
+              {you.clicks}
+            </div>
+            <div className="text-sm text-muted-foreground mt-1">Clicks</div>
             {stats.meanClicks !== null && stats.finishers > 1 && (
               <div className="text-xs text-muted-foreground/80 mt-2">
-                Average {stats.meanClicks}
+                Avg {stats.meanClicks}
               </div>
             )}
           </div>
+
+          <div className="rounded-2xl border border-border/40 bg-card p-5 text-center shadow-soft">
+            <div
+              className={`text-2xl sm:text-3xl font-bold tracking-tight ${
+                you.misses > 0 ? "text-destructive" : "text-green-500"
+              }`}
+            >
+              {you.misses}
+            </div>
+            <div className="text-sm text-muted-foreground mt-1">Misses</div>
+            {stats.meanMisses !== null && stats.finishers > 1 && (
+              <div className="text-xs text-muted-foreground/80 mt-2">
+                Avg {stats.meanMisses}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {you && you.routeTitles.length > 0 && (
+        <div className="rounded-2xl border border-border/40 bg-card p-6 shadow-soft animate-slide-up">
+          <h2 className="font-semibold mb-4">Route Taken</h2>
+          <div className="flex flex-wrap items-center gap-2">
+            {you.routeTitles.map((title, index) => (
+              <span key={index} className="flex items-center">
+                <span
+                  className={`px-2.5 py-1 rounded-lg text-sm ${
+                    index === 0
+                      ? "bg-secondary font-medium"
+                      : index === you.routeTitles.length - 1
+                      ? "bg-primary/10 text-primary font-semibold"
+                      : "bg-muted"
+                  }`}
+                >
+                  {title}
+                </span>
+                {index < you.routeTitles.length - 1 && (
+                  <span className="mx-1.5 text-muted-foreground/50">→</span>
+                )}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {you && you.misses > 0 && (
+        <div className="rounded-2xl bg-destructive/10 border border-destructive/20 p-6 shadow-soft animate-slide-up">
+          <h2 className="font-semibold mb-2 text-destructive">What are misses?</h2>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            A &quot;miss&quot; is counted when you&apos;re on a page that has a direct
+            link to your target article, but you clicked on a different link
+            instead. Lower misses means more efficient navigation!
+          </p>
         </div>
       )}
 

@@ -16,10 +16,18 @@ export interface DailyStats {
   finishers: number;
   meanClicks: number | null;
   meanTimeMs: number | null;
+  meanMisses: number | null;
   /** Best runs of the day. Hinted runs are excluded from records. */
   fewestClicks: RecordHolder | null;
   fastest: RecordHolder | null;
-  you: { clicks: number; timeMs: number; usedHints: boolean; gaveUp: boolean } | null;
+  you: {
+    clicks: number;
+    timeMs: number;
+    misses: number;
+    routeTitles: string[];
+    usedHints: boolean;
+    gaveUp: boolean;
+  } | null;
   streak: number;
 }
 
@@ -38,7 +46,7 @@ export async function getDailyStats(runId: string): Promise<DailyStats | null> {
 
   const { data: runData } = await supabase
     .from("runs")
-    .select("id, daily_challenge_id, clicks_count, active_time_ms, used_hints, gave_up, is_completed")
+    .select("id, daily_challenge_id, clicks_count, active_time_ms, misses_count, route_titles, used_hints, gave_up, is_completed")
     .eq("id", runId)
     .maybeSingle();
 
@@ -48,6 +56,8 @@ export async function getDailyStats(runId: string): Promise<DailyStats | null> {
     daily_challenge_id: string | null;
     clicks_count: number;
     active_time_ms: number;
+    misses_count: number;
+    route_titles: string[] | null;
     used_hints: boolean;
     gave_up: boolean | null;
     is_completed: boolean;
@@ -73,7 +83,7 @@ export async function getDailyStats(runId: string): Promise<DailyStats | null> {
   // Anonymous players never reach the runs table, so this is signed-in only.
   const { data: allRunsData } = await service
     .from("runs")
-    .select("user_id, clicks_count, active_time_ms, used_hints, profiles(username)")
+    .select("user_id, clicks_count, active_time_ms, misses_count, used_hints, profiles(username)")
     .eq("daily_challenge_id", run.daily_challenge_id)
     .eq("is_completed", true)
     .neq("gave_up", true);
@@ -82,17 +92,20 @@ export async function getDailyStats(runId: string): Promise<DailyStats | null> {
     user_id: string;
     clicks_count: number;
     active_time_ms: number;
+    misses_count: number;
     used_hints: boolean;
     profiles: { username: string } | null;
   }[];
 
   const finishers = allRuns.length;
-  const meanClicks = finishers
-    ? Math.round((allRuns.reduce((s, r) => s + r.clicks_count, 0) / finishers) * 10) / 10
-    : null;
-  const meanTimeMs = finishers
-    ? Math.round(allRuns.reduce((s, r) => s + r.active_time_ms, 0) / finishers)
-    : null;
+  const mean = (pick: (r: (typeof allRuns)[number]) => number) =>
+    finishers
+      ? Math.round((allRuns.reduce((s, r) => s + pick(r), 0) / finishers) * 10) / 10
+      : null;
+
+  const meanClicks = mean((r) => r.clicks_count);
+  const meanTimeMs = finishers ? Math.round(mean((r) => r.active_time_ms)!) : null;
+  const meanMisses = mean((r) => r.misses_count);
 
   // Hinted runs count toward the averages but cannot hold a record
   const eligible = allRuns.filter((r) => !r.used_hints);
@@ -138,12 +151,15 @@ export async function getDailyStats(runId: string): Promise<DailyStats | null> {
     finishers,
     meanClicks,
     meanTimeMs,
+    meanMisses,
     fewestClicks,
     fastest,
     you: run.is_completed
       ? {
           clicks: run.clicks_count,
           timeMs: run.active_time_ms,
+          misses: run.misses_count,
+          routeTitles: run.route_titles ?? [],
           usedHints: run.used_hints,
           gaveUp: run.gave_up === true,
         }
