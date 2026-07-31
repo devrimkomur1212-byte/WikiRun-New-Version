@@ -121,8 +121,8 @@ export function DailyChallengeCard() {
           )}
         </>
       ) : (
-        <>
-          <label className="flex items-start gap-2.5 mb-4 cursor-pointer group">
+        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+          <label className="flex items-start gap-2.5 cursor-pointer group sm:max-w-sm">
             <input
               type="checkbox"
               checked={useHints}
@@ -138,17 +138,19 @@ export function DailyChallengeCard() {
             </span>
           </label>
 
-          <button
-            onClick={handleStart}
-            disabled={starting}
-            className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-[0_4px_12px_-2px_hsl(var(--primary)/0.4)] hover:shadow-[0_6px_16px_-2px_hsl(var(--primary)/0.5)] hover:translate-y-[-1px] transition-all duration-200 disabled:opacity-60 disabled:hover:translate-y-0"
-          >
-            {starting ? "Starting…" : "Play today's challenge"}
-          </button>
-          <p className="text-xs text-muted-foreground/70 mt-2.5 text-center">
-            One attempt per day — it starts as soon as you begin.
-          </p>
-        </>
+          <div className="sm:text-right shrink-0">
+            <button
+              onClick={handleStart}
+              disabled={starting}
+              className="w-full sm:w-auto rounded-xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-[0_4px_12px_-2px_hsl(var(--primary)/0.4)] hover:shadow-[0_6px_16px_-2px_hsl(var(--primary)/0.5)] hover:translate-y-[-1px] transition-all duration-200 disabled:opacity-60 disabled:hover:translate-y-0"
+            >
+              {starting ? "Starting…" : "Play today's challenge"}
+            </button>
+            <p className="text-xs text-muted-foreground/70 mt-2.5 text-center sm:text-right">
+              One attempt per day — it starts as soon as you begin.
+            </p>
+          </div>
+        </div>
       )}
     </div>
   );

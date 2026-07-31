@@ -192,7 +192,8 @@ export default function PlayPage() {
 
       <div className="grid lg:grid-cols-3 gap-8">
         {/* Game Info */}
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-2 space-y-8">
+          <div>
           <h2 className="text-h2 mb-6">About Ranked Mode</h2>
           <div className="rounded-2xl border border-border/40 bg-card p-6 space-y-4 shadow-soft">
             <p className="text-muted-foreground leading-relaxed">
@@ -205,12 +206,13 @@ export default function PlayPage() {
               Reach 2000+ ELO and you earn Wizard &mdash; the only rank that actually means something.
             </p>
           </div>
+          </div>
+
+          <DailyChallengeCard />
         </div>
 
         {/* Sidebar */}
         <div className="space-y-6">
-          <DailyChallengeCard />
-
           {/* Rank Tiers */}
           <div className="rounded-2xl border border-border/40 bg-card p-6 shadow-soft">
             <h3 className="text-lg font-semibold mb-4">Rank Tiers</h3>

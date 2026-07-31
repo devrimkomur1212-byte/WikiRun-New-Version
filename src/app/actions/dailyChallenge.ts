@@ -214,6 +214,74 @@ export async function recordDailyCompletion(challengeDate: string) {
   return { streak };
 }
 
+/**
+ * Gives up today's daily run. The run is marked forfeited rather than
+ * deleted: it stays out of the day's averages and records (getDailyStats
+ * filters forfeits out), but the row must survive so the unique index keeps
+ * the attempt consumed. Giving up breaks the streak.
+ */
+export async function giveUpDailyRun(runId: string, activeTimeMs: number) {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { status: "unauthorized" as const };
+  }
+
+  const { data: runData } = await supabase
+    .from("runs")
+    .select("id, is_completed, daily_challenge_id")
+    .eq("id", runId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  const run = runData as {
+    is_completed: boolean;
+    daily_challenge_id: string | null;
+  } | null;
+
+  if (!run || !run.daily_challenge_id) {
+    return { status: "not_found" as const };
+  }
+
+  if (!run.is_completed) {
+    await supabase
+      .from("runs")
+      .update({
+        is_completed: true,
+        gave_up: true,
+        active_time_ms: Math.max(0, Math.round(activeTimeMs)),
+      } as never)
+      .eq("id", runId)
+      .eq("user_id", user.id);
+  }
+
+  const { data: challengeData } = await supabase
+    .from("daily_challenges")
+    .select("challenge_date")
+    .eq("id", run.daily_challenge_id)
+    .single();
+
+  const challengeDate =
+    (challengeData as { challenge_date: string } | null)?.challenge_date ?? null;
+
+  // Forfeiting resets the streak outright
+  await supabase
+    .from("profiles")
+    .update({
+      daily_streak: 0,
+      ...(challengeDate ? { daily_last_played: challengeDate } : {}),
+    } as never)
+    .eq("id", user.id);
+
+  revalidatePath("/play");
+
+  return { status: "forfeited" as const };
+}
+
 async function currentChallengeDateFromDb(
   service: Awaited<ReturnType<typeof createServiceClient>>
 ): Promise<string> {

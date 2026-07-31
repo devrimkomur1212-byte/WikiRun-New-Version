@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useRunStore, selectCurrentTime } from "@/lib/run/runStore";
 import { Timer } from "./Timer";
 import { giveUpRankedRun } from "@/app/actions/submitRun";
+import { giveUpDailyRun } from "@/app/actions/dailyChallenge";
 
 interface RunHUDProps {
   /** Daily runs started with hints show when the target is one click away */
@@ -69,11 +70,29 @@ export function RunHUD({ showHints = false }: RunHUDProps) {
     }
   };
 
+  const handleGiveUpDaily = async () => {
+    if (!runId || isGivingUp) return;
+
+    setIsGivingUp(true);
+    try {
+      const currentTime = selectCurrentTime(useRunStore.getState());
+      await giveUpDailyRun(runId, currentTime);
+      completeRun();
+      router.push(`/results/daily/${runId}`);
+    } catch (error) {
+      console.error("Failed to give up:", error);
+      setIsGivingUp(false);
+      setConfirmingGiveUp(false);
+    }
+  };
+
   const handleGiveUp = () => {
     if (mode === "training") {
       handleGiveUpTraining();
     } else if (mode === "ranked") {
       handleGiveUpRanked();
+    } else if (mode === "daily") {
+      handleGiveUpDaily();
     }
   };
 
@@ -115,13 +134,18 @@ export function RunHUD({ showHints = false }: RunHUDProps) {
               <span className="text-xs text-muted-foreground">Clicks</span>
             </div>
 
-            {/* Give Up — training and ranked */}
-            {(mode === "training" || mode === "ranked") && !isTargetReached && (
+            {/* Give Up — every mode */}
+            {(mode === "training" || mode === "ranked" || mode === "daily") &&
+              !isTargetReached && (
               <div className="flex items-center gap-2">
                 {confirmingGiveUp ? (
                   <>
                     <span className="text-xs text-muted-foreground">
-                      {mode === "ranked" ? "Forfeit?" : "Sure?"}
+                      {mode === "ranked"
+                        ? "Forfeit?"
+                        : mode === "daily"
+                        ? "Lose streak?"
+                        : "Sure?"}
                     </span>
                     <button
                       onClick={handleGiveUp}

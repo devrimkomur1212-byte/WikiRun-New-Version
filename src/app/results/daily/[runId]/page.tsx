@@ -60,6 +60,16 @@ export default async function DailyResultsPage({ params }: Props) {
         </div>
       </div>
 
+      {you?.gaveUp && (
+        <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-5 text-center shadow-soft animate-slide-up">
+          <p className="text-destructive font-semibold">You gave up today</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            Your streak has been reset, and this run isn&apos;t counted in
+            today&apos;s stats. A new route arrives at the next reset.
+          </p>
+        </div>
+      )}
+
       {stats.streak > 0 && (
         <div className="rounded-2xl border border-border/40 bg-card p-5 text-center shadow-soft animate-slide-up">
           <div className="text-3xl font-bold">🔥 {stats.streak}</div>
