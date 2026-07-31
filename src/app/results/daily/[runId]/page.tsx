@@ -115,6 +115,15 @@ export default async function DailyResultsPage({ params }: Props) {
         </p>
       )}
 
+      {/* Averaging a single player against themselves says nothing, so
+          explain the absence rather than leaving a blank space */}
+      {you && !you.gaveUp && stats.finishers === 1 && (
+        <p className="text-center text-sm text-muted-foreground animate-slide-up">
+          You&apos;re the first to finish today — averages appear once someone
+          else has played.
+        </p>
+      )}
+
       {you?.usedHints && (
         <div className="rounded-2xl border border-border/40 bg-secondary/30 p-4 text-center text-sm text-muted-foreground animate-slide-up">
           You played with hints on, so this run isn&apos;t eligible for today&apos;s

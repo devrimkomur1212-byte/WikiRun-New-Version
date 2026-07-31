@@ -193,6 +193,8 @@ export default function PlayPage() {
       <div className="grid lg:grid-cols-3 gap-8">
         {/* Game Info */}
         <div className="lg:col-span-2 space-y-8">
+          <DailyChallengeCard />
+
           <div>
           <h2 className="text-h2 mb-6">About Ranked Mode</h2>
           <div className="rounded-2xl border border-border/40 bg-card p-6 space-y-4 shadow-soft">
@@ -207,8 +209,6 @@ export default function PlayPage() {
             </p>
           </div>
           </div>
-
-          <DailyChallengeCard />
         </div>
 
         {/* Sidebar */}
