@@ -5,9 +5,16 @@ import { useOnlineStore } from "@/lib/presence/onlineStore";
 
 const QUEUE_POLL_MS = 5000;
 
+// The online count only appears once it reads as a crowd. At ~3 players a
+// day it would otherwise usually say "1 player online", which tells a
+// visitor they are alone — worse than showing nothing at all.
+const MIN_ONLINE_TO_SHOW = 5;
+
 /**
- * "N players online" badge with an "in queue" suffix that only appears when
- * the queue is non-empty (an explicit "0 in queue" discourages queuing).
+ * Live activity badge. The online count is hidden below MIN_ONLINE_TO_SHOW,
+ * but the queue count still shows whenever anyone is queueing — that one is
+ * actionable rather than decorative, since it tells a player whether
+ * pressing Find Match will actually match them.
  */
 export function LivePlayerBadge() {
   const onlineCount = useOnlineStore((s) => s.onlineCount);
@@ -36,8 +43,10 @@ export function LivePlayerBadge() {
     };
   }, []);
 
-  // Presence needs a beat to sync; render nothing instead of "0 players online"
-  if (onlineCount < 1) return null;
+  const showOnline = onlineCount >= MIN_ONLINE_TO_SHOW;
+  const showQueue = queueCount >= 1;
+
+  if (!showOnline && !showQueue) return null;
 
   return (
     <div className="inline-flex items-center gap-2 rounded-full border border-border/40 bg-card px-4 py-2 text-sm text-muted-foreground shadow-soft animate-fade-in">
@@ -45,19 +54,19 @@ export function LivePlayerBadge() {
         <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-500 opacity-60" />
         <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-green-500" />
       </span>
-      <span>
-        <span className="font-semibold text-foreground">{onlineCount}</span>{" "}
-        {onlineCount === 1 ? "player" : "players"} online
-      </span>
-      {queueCount >= 1 && (
-        <>
-          <span className="text-border">•</span>
-          <span>
-            <span className="font-semibold text-foreground">{queueCount}</span>{" "}
-            in queue
-          </span>
-        </>
-      )}
+      {showOnline ? (
+        <span>
+          <span className="font-semibold text-foreground">{onlineCount}</span>{" "}
+          players online
+        </span>
+      ) : null}
+      {showOnline && showQueue ? <span className="text-border">•</span> : null}
+      {showQueue ? (
+        <span>
+          <span className="font-semibold text-foreground">{queueCount}</span>{" "}
+          in queue
+        </span>
+      ) : null}
     </div>
   );
 }
