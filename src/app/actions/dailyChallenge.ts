@@ -2,10 +2,19 @@
 
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
-import { isPreviousDay } from "@/lib/daily/challengeDate";
+import { currentChallengeDate, isPreviousDay } from "@/lib/daily/challengeDate";
+import { getCategoricallyUnrelatedPair } from "@/lib/articles";
 import type { Database } from "@/types/database.types";
 
 type RunInsert = Database["public"]["Tables"]["runs"]["Insert"];
+type ServiceClient = Awaited<ReturnType<typeof createServiceClient>>;
+
+interface TodaysChallenge {
+  id: string;
+  challenge_date: string;
+  start_title: string;
+  target_title: string;
+}
 
 export interface DailyChallengeSummary {
   id: string;
@@ -27,20 +36,9 @@ export async function getDailyChallenge(): Promise<DailyChallengeSummary | null>
   const supabase = await createClient();
   const service = await createServiceClient();
 
-  const { data: challengeData } = await service
-    .from("daily_challenges")
-    .select("id, challenge_date, start_title, target_title")
-    .eq("challenge_date", await currentChallengeDateFromDb(service))
-    .maybeSingle();
+  const challenge = await getTodaysChallenge(service);
 
-  if (!challengeData) return null;
-
-  const challenge = challengeData as {
-    id: string;
-    challenge_date: string;
-    start_title: string;
-    target_title: string;
-  };
+  if (!challenge) return null;
 
   const {
     data: { user },
@@ -99,21 +97,11 @@ export async function startDailyRun(useHints: boolean) {
     return { status: "unauthorized" as const };
   }
 
-  const { data: challengeData } = await service
-    .from("daily_challenges")
-    .select("id, start_title, target_title")
-    .eq("challenge_date", await currentChallengeDateFromDb(service))
-    .maybeSingle();
+  const challenge = await getTodaysChallenge(service);
 
-  if (!challengeData) {
+  if (!challenge) {
     return { status: "no_challenge" as const };
   }
-
-  const challenge = challengeData as {
-    id: string;
-    start_title: string;
-    target_title: string;
-  };
 
   // Already used today's attempt? Send them back to it rather than erroring.
   const { data: existing } = await supabase
@@ -282,9 +270,45 @@ export async function giveUpDailyRun(runId: string, activeTimeMs: number) {
   return { status: "forfeited" as const };
 }
 
+/**
+ * Today's scheduled challenge. If the queue has run out, one is generated and
+ * saved so the daily never disappears (it did for 12 weeks from 9 August).
+ * Saving it gives every player the same route; if two requests race, the
+ * unique challenge_date means the first wins and both read back that row.
+ */
+async function getTodaysChallenge(
+  service: ServiceClient
+): Promise<TodaysChallenge | null> {
+  const date = await currentChallengeDateFromDb(service);
+
+  const read = async () => {
+    const { data } = await service
+      .from("daily_challenges")
+      .select("id, challenge_date, start_title, target_title")
+      .eq("challenge_date", date)
+      .maybeSingle();
+    return data as TodaysChallenge | null;
+  };
+
+  const scheduled = await read();
+  if (scheduled) return scheduled;
+
+  const pair = getCategoricallyUnrelatedPair();
+  await service.from("daily_challenges").upsert(
+    {
+      challenge_date: date,
+      start_title: pair.start,
+      target_title: pair.target,
+    } as never,
+    { onConflict: "challenge_date", ignoreDuplicates: true }
+  );
+
+  return read();
+}
+
 async function currentChallengeDateFromDb(
-  service: Awaited<ReturnType<typeof createServiceClient>>
+  service: ServiceClient
 ): Promise<string> {
   const { data } = await service.rpc("current_challenge_date");
-  return (data as unknown as string) ?? new Date().toISOString().slice(0, 10);
+  return (data as unknown as string) ?? currentChallengeDate();
 }
