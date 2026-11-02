@@ -120,19 +120,7 @@ export default function TermsPage() {
         </section>
 
         <section>
-          <h2 className="text-h2 mb-3">7. Advertisements</h2>
-          <div className="space-y-3 text-muted-foreground leading-relaxed">
-            <p>
-              WikiRun displays advertisements through Google AdSense to support the free operation of
-              the Service. These advertisements may use cookies and tracking technologies as described
-              in our Privacy Policy. By using the Service, you acknowledge that advertisements are a
-              necessary part of the free experience.
-            </p>
-          </div>
-        </section>
-
-        <section>
-          <h2 className="text-h2 mb-3">8. Limitation of Liability</h2>
+          <h2 className="text-h2 mb-3">7. Limitation of Liability</h2>
           <div className="space-y-3 text-muted-foreground leading-relaxed">
             <p>
               WikiRun is provided &quot;as is&quot; and &quot;as available&quot; without warranties of any kind, either
@@ -150,7 +138,7 @@ export default function TermsPage() {
         </section>
 
         <section>
-          <h2 className="text-h2 mb-3">9. Account Termination</h2>
+          <h2 className="text-h2 mb-3">8. Account Termination</h2>
           <div className="space-y-3 text-muted-foreground leading-relaxed">
             <p>
               We reserve the right to suspend or terminate your account at any time, with or without
@@ -166,7 +154,7 @@ export default function TermsPage() {
         </section>
 
         <section>
-          <h2 className="text-h2 mb-3">10. Age Requirement</h2>
+          <h2 className="text-h2 mb-3">9. Age Requirement</h2>
           <div className="space-y-3 text-muted-foreground leading-relaxed">
             <p>
               You must be at least 13 years of age to create an account and use the ranked features
@@ -178,7 +166,7 @@ export default function TermsPage() {
         </section>
 
         <section>
-          <h2 className="text-h2 mb-3">11. Governing Law</h2>
+          <h2 className="text-h2 mb-3">10. Governing Law</h2>
           <div className="space-y-3 text-muted-foreground leading-relaxed">
             <p>
               These Terms shall be governed by and construed in accordance with the laws of the
@@ -190,7 +178,7 @@ export default function TermsPage() {
         </section>
 
         <section>
-          <h2 className="text-h2 mb-3">12. Contact</h2>
+          <h2 className="text-h2 mb-3">11. Contact</h2>
           <div className="space-y-3 text-muted-foreground leading-relaxed">
             <p>
               If you have any questions about these Terms of Service, please contact us at:

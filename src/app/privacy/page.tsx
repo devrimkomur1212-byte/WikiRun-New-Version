@@ -56,9 +56,10 @@ export default function PrivacyPolicyPage() {
             <div>
               <h3 className="text-base font-semibold text-foreground mb-2">Training Mode Data</h3>
               <p>
-                If you use Training Mode without an account, your game data is stored locally on your
-                device using your browser&apos;s local storage. This data is not sent to our servers and is
-                not accessible to us.
+                Your Training Mode runs are stored locally on your device using your browser&apos;s local
+                storage rather than in our database. If you accept analytics cookies, we receive usage
+                statistics about those runs, such as the difficulty, time taken and number of clicks,
+                as described under PostHog in Section 4.
               </p>
             </div>
             <div>
@@ -116,12 +117,19 @@ export default function PrivacyPolicyPage() {
               <h3 className="text-base font-semibold text-foreground mb-2">Google Services</h3>
               <p>
                 We use Google OAuth for optional sign-in functionality. If you choose to sign in with
-                Google, Google will share your email address and profile name with us. We also use
-                Google AdSense to display advertisements on our website. Google AdSense may use cookies
-                and similar technologies to serve ads based on your prior visits to our website and other
-                websites. You can opt out of personalized advertising by visiting{" "}
-                <a href="https://www.google.com/settings/ads" target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80 transition-colors">
-                  Google Ads Settings
+                Google, Google will share your email address and profile name with us.
+              </p>
+            </div>
+            <div>
+              <h3 className="text-base font-semibold text-foreground mb-2">PostHog</h3>
+              <p>
+                If you choose &quot;Accept all&quot; on our cookie banner, we use PostHog (hosted in the EU) to
+                understand how the game is played. It records information such as pages viewed, clicks,
+                game events, errors, and your device and approximate location, and links this to your
+                account if you are signed in. If you choose &quot;Essential only&quot;, PostHog is not loaded.
+                You can review PostHog&apos;s privacy policy at{" "}
+                <a href="https://posthog.com/privacy" target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80 transition-colors">
+                  posthog.com/privacy
                 </a>.
               </p>
             </div>
@@ -148,7 +156,7 @@ export default function PrivacyPolicyPage() {
             <ul className="space-y-2 list-none">
               {[
                 "Essential cookies: Required for authentication and session management. These cookies are necessary for the website to function and cannot be disabled.",
-                "Advertising cookies: Used by Google AdSense to serve relevant advertisements. These cookies may track your browsing activity across websites.",
+                "Analytics cookies: Used by PostHog to understand how the game is played. These are only set if you choose \"Accept all\" on our cookie banner.",
                 "Local storage: Used in Training Mode to save your game progress locally on your device.",
               ].map((item, i) => (
                 <li key={i} className="flex items-start gap-2">

@@ -32,8 +32,8 @@ export function CookieConsent() {
         <h2 className="font-semibold mb-1.5">Cookies on WikiRun</h2>
         <p className="text-sm text-muted-foreground leading-relaxed mb-4">
           We use essential cookies to keep you signed in and make the game
-          work. With your permission we&apos;d also like to use cookies for
-          advertising and to understand how the game is played. See our{" "}
+          work. With your permission we&apos;d also like to use analytics
+          cookies to understand how the game is played. See our{" "}
           <Link
             href="/privacy"
             className="text-primary hover:text-primary/80 underline underline-offset-2"
