@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
+import { redirectFromLocation } from "@/lib/auth/safeRedirect";
 import { validateUsername } from "@/lib/validation/profanity";
 import { track } from "@/lib/analytics/posthog";
 
@@ -16,6 +17,11 @@ export default function SignupPage() {
   const [username, setUsername] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [returnTo, setReturnTo] = useState<string | null>(null);
+
+  useEffect(() => {
+    setReturnTo(redirectFromLocation());
+  }, []);
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,7 +70,7 @@ export default function SignupPage() {
 
     // Straight into the game — a brand-new account has nothing to show on
     // the dashboard, which is where new players were being dropped
-    router.push("/play");
+    router.push(returnTo ?? "/play");
     router.refresh();
   };
 
@@ -167,11 +173,11 @@ export default function SignupPage() {
             </div>
           </div>
 
-          <GoogleSignInButton />
+          <GoogleSignInButton returnTo={returnTo} />
 
           <p className="text-center text-sm text-muted-foreground mt-6">
             Already have an account?{" "}
-            <Link href="/login" className="text-primary hover:text-primary/80 font-medium transition-colors">
+            <Link href={returnTo ? `/login?redirect=${encodeURIComponent(returnTo)}` : "/login"} className="text-primary hover:text-primary/80 font-medium transition-colors">
               Sign in
             </Link>
           </p>

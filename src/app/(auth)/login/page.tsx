@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
+import { redirectFromLocation } from "@/lib/auth/safeRedirect";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -13,6 +14,11 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [returnTo, setReturnTo] = useState<string | null>(null);
+
+  useEffect(() => {
+    setReturnTo(redirectFromLocation());
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,7 +36,7 @@ export default function LoginPage() {
       return;
     }
 
-    router.push("/dashboard");
+    router.push(returnTo ?? "/dashboard");
     router.refresh();
   };
 
@@ -115,11 +121,11 @@ export default function LoginPage() {
             </div>
           </div>
 
-          <GoogleSignInButton />
+          <GoogleSignInButton returnTo={returnTo} />
 
           <p className="text-center text-sm text-muted-foreground mt-6">
             Don&apos;t have an account?{" "}
-            <Link href="/signup" className="text-primary hover:text-primary/80 font-medium transition-colors">
+            <Link href={returnTo ? `/signup?redirect=${encodeURIComponent(returnTo)}` : "/signup"} className="text-primary hover:text-primary/80 font-medium transition-colors">
               Sign up
             </Link>
           </p>

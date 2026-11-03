@@ -2,13 +2,19 @@
 
 import { createClient } from "@/lib/supabase/client";
 import { useState } from "react";
+import { AUTH_NEXT_COOKIE } from "@/lib/auth/safeRedirect";
 
-export function GoogleSignInButton() {
+export function GoogleSignInButton({ returnTo = null }: { returnTo?: string | null }) {
   const [loading, setLoading] = useState(false);
   const supabase = createClient();
 
   const handleGoogleSignIn = async () => {
     setLoading(true);
+
+    // Carried in a cookie so the redirect URL Supabase has allowlisted is unchanged
+    document.cookie = returnTo
+      ? `${AUTH_NEXT_COOKIE}=${encodeURIComponent(returnTo)}; path=/; max-age=600; samesite=lax`
+      : `${AUTH_NEXT_COOKIE}=; path=/; max-age=0`;
 
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',

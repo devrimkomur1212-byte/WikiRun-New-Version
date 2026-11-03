@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse, type NextRequest } from "next/server";
 import { containsProfanity } from "@/lib/validation/profanity";
+import { AUTH_NEXT_COOKIE, safeRedirectPath } from "@/lib/auth/safeRedirect";
 
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
@@ -84,7 +85,13 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  const returnCookie = (await cookies()).get(AUTH_NEXT_COOKIE)?.value;
   const next =
-    requestUrl.searchParams.get("next") || (isNewSignup ? "/play" : "/dashboard");
-  return NextResponse.redirect(`${origin}${next}`);
+    safeRedirectPath(requestUrl.searchParams.get("next")) ||
+    safeRedirectPath(returnCookie && decodeURIComponent(returnCookie)) ||
+    (isNewSignup ? "/play" : "/dashboard");
+
+  const response = NextResponse.redirect(`${origin}${next}`);
+  response.cookies.delete(AUTH_NEXT_COOKIE);
+  return response;
 }
