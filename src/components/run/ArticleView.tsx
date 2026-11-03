@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useRunStore } from "@/lib/run/runStore";
+import { useRunStore, isTargetTitle } from "@/lib/run/runStore";
 import { rewriteWikiLinks } from "@/lib/wiki/rewriteLinks";
 import { ArticleSkeleton } from "./ArticleSkeleton";
 import { submitRun } from "@/app/actions/submitRun";
@@ -79,6 +79,7 @@ export function ArticleView({
     completeRun,
     isTargetReached,
     outgoingLinks,
+    targetAliases,
     isCompleted,
   } = useRunStore();
 
@@ -201,19 +202,28 @@ export function ArticleView({
       setLoadingState(true);
 
       try {
-        const hadDirectLinkToTarget = outgoingLinks.some(
-          (linkTitle) => linkTitle.toLowerCase() === targetTitle.toLowerCase()
+        const hadDirectLinkToTarget = outgoingLinks.some((linkTitle) =>
+          isTargetTitle(linkTitle, targetAliases)
         );
 
-        registerNavigation(nextTitle, hadDirectLinkToTarget);
-
-        if (nextTitle.toLowerCase() === targetTitle.toLowerCase()) {
-          setLoading(false);
-          setLoadingState(false);
+        if (isTargetTitle(nextTitle, targetAliases)) {
+          registerNavigation(targetTitle, hadDirectLinkToTarget);
           return;
         }
 
         const article = await fetchArticleClient(nextTitle);
+
+        // Catches a redirect the alias lookup didn't return (it may have failed
+        // or still be in flight). Reached means the target actually loaded.
+        if (isTargetTitle(article.title, targetAliases)) {
+          registerNavigation(targetTitle, hadDirectLinkToTarget);
+          return;
+        }
+
+        // Recorded under the resolved title, and only once the article loaded,
+        // so a failed fetch doesn't cost a click or leave the route wrong
+        registerNavigation(article.title, hadDirectLinkToTarget);
+
         const sanitized = DOMPurify.sanitize(article.html, {
           FORBID_TAGS: ["script", "style", "iframe"],
         });
@@ -237,7 +247,7 @@ export function ArticleView({
         setLoadingState(false);
       }
     },
-    [runId, targetTitle, outgoingLinks, pauseTimer, resumeTimer, setLoading, setCurrentArticle, setOutgoingLinks, registerNavigation]
+    [runId, targetTitle, targetAliases, outgoingLinks, pauseTimer, resumeTimer, setLoading, setCurrentArticle, setOutgoingLinks, registerNavigation]
   );
 
   if (loading) {

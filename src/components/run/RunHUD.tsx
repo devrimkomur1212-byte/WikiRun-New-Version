@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useRunStore, selectCurrentTime } from "@/lib/run/runStore";
+import { useRunStore, selectCurrentTime, isTargetTitle } from "@/lib/run/runStore";
 import { Timer } from "./Timer";
 import { giveUpRankedRun } from "@/app/actions/submitRun";
 import { giveUpDailyRun } from "@/app/actions/dailyChallenge";
@@ -17,6 +17,7 @@ export function RunHUD({ showHints = false }: RunHUDProps) {
   const startTitle = useRunStore((state) => state.startTitle);
   const targetTitle = useRunStore((state) => state.targetTitle);
   const outgoingLinks = useRunStore((state) => state.outgoingLinks);
+  const targetAliases = useRunStore((state) => state.targetAliases);
   const currentTitle = useRunStore((state) => state.currentTitle);
   const clicksCount = useRunStore((state) => state.clicksCount);
   const routeTitles = useRunStore((state) => state.routeTitles);
@@ -30,10 +31,7 @@ export function RunHUD({ showHints = false }: RunHUDProps) {
   const [isGivingUp, setIsGivingUp] = useState(false);
 
   const targetIsLinkedHere =
-    showHints &&
-    outgoingLinks.some(
-      (link) => link.toLowerCase() === targetTitle.toLowerCase()
-    );
+    showHints && outgoingLinks.some((link) => isTargetTitle(link, targetAliases));
 
   const handleGiveUpTraining = () => {
     const runData = completeRun();

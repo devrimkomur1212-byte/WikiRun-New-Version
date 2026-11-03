@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { RunStep } from "@/types/run.types";
 import { track } from "@/lib/analytics/posthog";
+import { fetchTargetAliases } from "@/lib/wiki/targetAliases";
 
 // Helper types and functions for session storage persistence
 const STORAGE_KEY_PREFIX = "run-state-";
@@ -77,6 +78,9 @@ interface RunState {
   // Outgoing links from current page
   outgoingLinks: string[];
 
+  // Lowercased titles that land on the target, redirects included
+  targetAliases: string[];
+
   // Run completion
   isCompleted: boolean;
   isTargetReached: boolean;
@@ -133,6 +137,7 @@ const initialState = {
   timerStartedAt: null,
   lastPausedAt: null,
   outgoingLinks: [],
+  targetAliases: [],
   isCompleted: false,
   isTargetReached: false,
 };
@@ -221,6 +226,14 @@ export const useRunStore = create<RunState>((set, get) => ({
       currentTitle: title,
       currentHtmlLength: html.length,
     });
+
+    set({ targetAliases: [data.targetTitle.toLowerCase()] });
+    fetchTargetAliases(data.targetTitle)
+      .then((targetAliases) => {
+        // The player may have left this run while the lookup was in flight
+        if (get().runId === data.runId) set({ targetAliases });
+      })
+      .catch((error) => console.error("Failed to load target redirects:", error));
   },
 
   setCurrentArticle: (title, html) => {
@@ -281,12 +294,16 @@ export const useRunStore = create<RunState>((set, get) => ({
     }
 
     // Check if this is a miss (had direct link but clicked something else)
-    const isTargetReached = nextTitle.toLowerCase() === state.targetTitle.toLowerCase();
+    const isTargetReached = isTargetTitle(nextTitle, state.targetAliases);
     const isMiss = hadDirectLinkToTarget && !isTargetReached;
+
+    // The route always ends on the target's own title, however it was reached:
+    // submitRun flags a run whose route ends on anything else
+    const enteredTitle = isTargetReached ? state.targetTitle : nextTitle;
 
     // Add the new step
     updatedSteps.push({
-      title: nextTitle,
+      title: enteredTitle,
       timestamp_entered: now,
       timestamp_left: null,
       had_direct_link_to_target: false,
@@ -294,10 +311,10 @@ export const useRunStore = create<RunState>((set, get) => ({
 
     const newClicksCount = state.clicksCount + 1;
     const newMissesCount = state.missesCount + (isMiss ? 1 : 0);
-    const newRouteTitles = [...state.routeTitles, nextTitle];
+    const newRouteTitles = [...state.routeTitles, enteredTitle];
 
     set({
-      currentTitle: nextTitle,
+      currentTitle: enteredTitle,
       clicksCount: newClicksCount,
       missesCount: newMissesCount,
       routeTitles: newRouteTitles,
@@ -318,7 +335,7 @@ export const useRunStore = create<RunState>((set, get) => ({
         missesCount: newMissesCount,
         routeTitles: newRouteTitles,
         steps: updatedSteps,
-        currentTitle: nextTitle,
+        currentTitle: enteredTitle,
       });
     }
   },
@@ -385,6 +402,9 @@ export const useRunStore = create<RunState>((set, get) => ({
     set(initialState);
   },
 }));
+
+export const isTargetTitle = (title: string, targetAliases: string[]): boolean =>
+  targetAliases.includes(title.toLowerCase());
 
 // Selector for current time (includes running time)
 export const selectCurrentTime = (state: RunState): number => {
