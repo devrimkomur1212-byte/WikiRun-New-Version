@@ -18,7 +18,7 @@ const RULES = [
   },
   {
     title: "Keep your streak",
-    body: "Finish every day to build a streak. Giving up or missing a day ends it.",
+    body: "A free account keeps your streak. Finish every day to build it; giving up or missing a day ends it.",
   },
   {
     title: "Compare afterwards",
@@ -32,7 +32,8 @@ export default function DailyPage() {
       <div className="text-center mb-10 animate-fade-in">
         <h1 className="text-display-sm mb-4">Daily Challenge</h1>
         <p className="text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-          One route a day, the same for everyone. It never touches your ELO.
+          One route a day, the same for everyone. No account needed, and it
+          never touches your ELO.
         </p>
       </div>
 

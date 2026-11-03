@@ -6,6 +6,7 @@ import { useRunStore, selectCurrentTime, isTargetTitle } from "@/lib/run/runStor
 import { Timer } from "./Timer";
 import { giveUpRankedRun } from "@/app/actions/submitRun";
 import { giveUpDailyRun } from "@/app/actions/dailyChallenge";
+import { isGuestDailyRun } from "@/lib/daily/guestRun";
 
 interface RunHUDProps {
   /** Daily runs started with hints show when the target is one click away */
@@ -33,7 +34,10 @@ export function RunHUD({ showHints = false }: RunHUDProps) {
   const targetIsLinkedHere =
     showHints && outgoingLinks.some((link) => isTargetTitle(link, targetAliases));
 
-  const handleGiveUpTraining = () => {
+  // Training and signed-out daily runs are only stored in the browser
+  const isGuestDaily = runId !== null && isGuestDailyRun(runId);
+
+  const handleGiveUpClientSide = () => {
     const runData = completeRun();
     localStorage.setItem(
       `run-results-${runId}`,
@@ -47,7 +51,7 @@ export function RunHUD({ showHints = false }: RunHUDProps) {
         gaveUp: true,
       })
     );
-    router.push(`/results/training/${runId}`);
+    router.push(isGuestDaily ? "/daily/result" : `/results/training/${runId}`);
   };
 
   const handleGiveUpRanked = async () => {
@@ -85,8 +89,8 @@ export function RunHUD({ showHints = false }: RunHUDProps) {
   };
 
   const handleGiveUp = () => {
-    if (mode === "training") {
-      handleGiveUpTraining();
+    if (mode === "training" || isGuestDaily) {
+      handleGiveUpClientSide();
     } else if (mode === "ranked") {
       handleGiveUpRanked();
     } else if (mode === "daily") {
@@ -141,7 +145,7 @@ export function RunHUD({ showHints = false }: RunHUDProps) {
                     <span className="text-xs text-muted-foreground">
                       {mode === "ranked"
                         ? "Forfeit?"
-                        : mode === "daily"
+                        : mode === "daily" && !isGuestDaily
                         ? "Lose streak?"
                         : "Sure?"}
                     </span>

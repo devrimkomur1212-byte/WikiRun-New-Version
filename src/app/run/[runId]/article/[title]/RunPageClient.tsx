@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useRunStore } from "@/lib/run/runStore";
 import { RunHUD } from "@/components/run/RunHUD";
 import { ArticleView } from "@/components/run/ArticleView";
 import { OpponentStatus } from "@/components/run/OpponentStatus";
+import { isGuestDailyRun } from "@/lib/daily/guestRun";
 
 interface RunPageClientProps {
   runId: string;
@@ -35,6 +36,7 @@ export function RunPageClient({
   const hasInitialized = useRef(false);
   const initializeRun = useRunStore((state) => state.initializeRun);
   const reset = useRunStore((state) => state.reset);
+  const [hintsEnabled, setHintsEnabled] = useState(showHints);
 
   // Initialize store with metadata only - ArticleView handles fetching
   useEffect(() => {
@@ -42,18 +44,27 @@ export function RunPageClient({
       hasInitialized.current = true;
 
       if (isClientSideRun) {
+        const isGuestDaily = isGuestDailyRun(runId);
+        const exitPath = isGuestDaily ? "/daily" : "/training";
         const runDataString = localStorage.getItem(`run-${runId}`);
 
         if (!runDataString) {
-          router.push("/training");
+          router.push(exitPath);
+          return;
+        }
+
+        // A finished daily can't be played again by coming back to its URL
+        if (isGuestDaily && localStorage.getItem(`run-results-${runId}`)) {
+          router.replace("/daily/result");
           return;
         }
 
         try {
           const runData = JSON.parse(runDataString);
+          if (isGuestDaily) setHintsEnabled(Boolean(runData.useHints));
           initializeRun({
             runId,
-            mode: "training",
+            mode: isGuestDaily ? "daily" : "training",
             startTitle: runData.startTitle,
             targetTitle: runData.targetTitle,
             routeId: null,
@@ -61,7 +72,7 @@ export function RunPageClient({
             initialTitle,
           });
         } catch {
-          router.push("/training");
+          router.push(exitPath);
         }
       } else {
         initializeRun({
@@ -84,7 +95,7 @@ export function RunPageClient({
 
   return (
     <div className="min-h-screen bg-background">
-      <RunHUD showHints={showHints} />
+      <RunHUD showHints={hintsEnabled} />
       <ArticleView
         runId={runId}
         isClientSideRun={isClientSideRun}

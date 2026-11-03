@@ -2,16 +2,15 @@
 
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 
+type ServiceClient = Awaited<ReturnType<typeof createServiceClient>>;
+
 export interface RecordHolder {
   username: string;
   clicks: number;
   timeMs: number;
 }
 
-export interface DailyStats {
-  challengeDate: string;
-  startTitle: string;
-  targetTitle: string;
+export interface DailyAggregates {
   /** Completed, signed-in attempts counted for this day */
   finishers: number;
   meanClicks: number | null;
@@ -20,6 +19,12 @@ export interface DailyStats {
   /** Best runs of the day. Hinted runs are excluded from records. */
   fewestClicks: RecordHolder | null;
   fastest: RecordHolder | null;
+}
+
+export interface DailyStats extends DailyAggregates {
+  challengeDate: string;
+  startTitle: string;
+  targetTitle: string;
   you: {
     clicks: number;
     timeMs: number;
@@ -79,12 +84,68 @@ export async function getDailyStats(runId: string): Promise<DailyStats | null> {
 
   if (!challenge) return null;
 
+  const aggregates = await computeAggregates(service, run.daily_challenge_id);
+
+  let streak = 0;
+  if (user) {
+    const { data: profileData } = await supabase
+      .from("profiles")
+      .select("daily_streak")
+      .eq("id", user.id)
+      .single();
+    streak = (profileData as { daily_streak: number } | null)?.daily_streak ?? 0;
+  }
+
+  return {
+    challengeDate: challenge.challenge_date,
+    startTitle: challenge.start_title,
+    targetTitle: challenge.target_title,
+    ...aggregates,
+    you: run.is_completed
+      ? {
+          clicks: run.clicks_count,
+          timeMs: run.active_time_ms,
+          misses: run.misses_count,
+          routeTitles: run.route_titles ?? [],
+          usedHints: run.used_hints,
+          gaveUp: run.gave_up === true,
+        }
+      : null,
+    streak,
+  };
+}
+
+/**
+ * A day's averages and records for a signed-out player's result screen. Returns
+ * aggregates only, never the route, so it can't reveal a future day's articles.
+ */
+export async function getDailyAggregates(
+  challengeDate: string
+): Promise<DailyAggregates | null> {
+  const service = await createServiceClient();
+
+  const { data } = await service
+    .from("daily_challenges")
+    .select("id")
+    .eq("challenge_date", challengeDate)
+    .maybeSingle();
+
+  const challenge = data as { id: string } | null;
+  if (!challenge) return null;
+
+  return computeAggregates(service, challenge.id);
+}
+
+async function computeAggregates(
+  service: ServiceClient,
+  challengeId: string
+): Promise<DailyAggregates> {
   // Every counted attempt for this challenge: completed, not forfeited.
   // Anonymous players never reach the runs table, so this is signed-in only.
   const { data: allRunsData } = await service
     .from("runs")
     .select("user_id, clicks_count, active_time_ms, misses_count, used_hints, profiles(username)")
-    .eq("daily_challenge_id", run.daily_challenge_id)
+    .eq("daily_challenge_id", challengeId)
     .eq("is_completed", true)
     .neq("gave_up", true);
 
@@ -134,36 +195,5 @@ export async function getDailyStats(runId: string): Promise<DailyStats | null> {
       )
     : null;
 
-  let streak = 0;
-  if (user) {
-    const { data: profileData } = await supabase
-      .from("profiles")
-      .select("daily_streak")
-      .eq("id", user.id)
-      .single();
-    streak = (profileData as { daily_streak: number } | null)?.daily_streak ?? 0;
-  }
-
-  return {
-    challengeDate: challenge.challenge_date,
-    startTitle: challenge.start_title,
-    targetTitle: challenge.target_title,
-    finishers,
-    meanClicks,
-    meanTimeMs,
-    meanMisses,
-    fewestClicks,
-    fastest,
-    you: run.is_completed
-      ? {
-          clicks: run.clicks_count,
-          timeMs: run.active_time_ms,
-          misses: run.misses_count,
-          routeTitles: run.route_titles ?? [],
-          usedHints: run.used_hints,
-          gaveUp: run.gave_up === true,
-        }
-      : null,
-    streak,
-  };
+  return { finishers, meanClicks, meanTimeMs, meanMisses, fewestClicks, fastest };
 }

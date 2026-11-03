@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { RunPageClient } from "./RunPageClient";
+import { isGuestDailyRun } from "@/lib/daily/guestRun";
 import type { Database } from "@/types/database.types";
 
 type RunRow = Database["public"]["Tables"]["runs"]["Row"];
@@ -16,11 +17,11 @@ export default async function RunArticlePage({ params }: Props) {
   const { runId, title } = await params;
   const decodedTitle = decodeURIComponent(title);
 
-  // Check if this is a client-side training run (no auth required)
-  const isClientSideRun = runId.startsWith("training-");
+  // Training and signed-out daily runs live in the browser (no auth required)
+  const isClientSideRun = runId.startsWith("training-") || isGuestDailyRun(runId);
 
   if (isClientSideRun) {
-    // For training runs, client fetches article directly from Wikipedia
+    // The client reads the route from localStorage and fetches from Wikipedia
     return (
       <RunPageClient
         runId={runId}

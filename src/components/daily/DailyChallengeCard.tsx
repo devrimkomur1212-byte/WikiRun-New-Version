@@ -9,6 +9,12 @@ import {
   type DailyChallengeSummary,
 } from "@/app/actions/dailyChallenge";
 import { msUntilNextReset, formatCountdown } from "@/lib/daily/challengeDate";
+import {
+  claimGuestStreak,
+  readGuestAttempt,
+  startGuestAttempt,
+  type GuestAttempt,
+} from "@/lib/daily/guestRun";
 import { track } from "@/lib/analytics/posthog";
 
 export function DailyChallengeCard() {
@@ -18,12 +24,33 @@ export function DailyChallengeCard() {
   const [starting, setStarting] = useState(false);
   const [useHints, setUseHints] = useState(false);
   const [countdown, setCountdown] = useState("");
+  const [guestAttempt, setGuestAttempt] = useState<GuestAttempt | null>(null);
 
   useEffect(() => {
-    getDailyChallenge()
-      .then(setChallenge)
-      .catch(() => setChallenge(null))
-      .finally(() => setLoading(false));
+    const load = async () => {
+      try {
+        const summary = await getDailyChallenge();
+        if (!summary) return;
+
+        const attempt = readGuestAttempt(summary.challengeDate);
+        setGuestAttempt(attempt);
+
+        // Played signed out, signed in since: the run counts towards the streak
+        if (attempt && summary.signedIn && !summary.attempt) {
+          await claimGuestStreak(attempt);
+          setChallenge(await getDailyChallenge());
+          return;
+        }
+
+        setChallenge(summary);
+      } catch {
+        setChallenge(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    load();
   }, []);
 
   // Low-key countdown — refreshed each minute, never seconds
@@ -37,10 +64,22 @@ export function DailyChallengeCard() {
   const handleStart = async () => {
     setStarting(true);
     try {
+      if (!challenge!.signedIn) {
+        const runId = startGuestAttempt({
+          challengeDate: challenge!.challengeDate,
+          startTitle: challenge!.startTitle,
+          targetTitle: challenge!.targetTitle,
+          useHints,
+        });
+        track("daily_challenge_started", { used_hints: useHints, signed_in: false });
+        router.push(`/run/${runId}/article/${encodeURIComponent(challenge!.startTitle)}`);
+        return;
+      }
+
       const result = await startDailyRun(useHints);
 
       if (result.status === "started") {
-        track("daily_challenge_started", { used_hints: useHints });
+        track("daily_challenge_started", { used_hints: useHints, signed_in: true });
         router.push(
           `/run/${result.runId}/article/${encodeURIComponent(result.startTitle)}`
         );
@@ -78,7 +117,7 @@ export function DailyChallengeCard() {
     );
   }
 
-  const played = challenge.attempt !== null;
+  const played = challenge.attempt !== null || guestAttempt !== null;
 
   return (
     <div className="rounded-2xl border border-border/40 bg-card p-6 shadow-soft">
@@ -107,27 +146,14 @@ export function DailyChallengeCard() {
         </p>
       )}
 
-      {!challenge.signedIn ? (
-        <>
-          <p className="text-sm text-muted-foreground mb-4">
-            Sign in to play the daily challenge, keep a streak, and appear on the
-            leaderboard.
-          </p>
-          <Link
-            href="/login?redirect=/daily"
-            className="block w-full rounded-xl bg-primary px-4 py-3 text-center text-sm font-semibold text-primary-foreground shadow-[0_4px_12px_-2px_hsl(var(--primary)/0.4)] hover:translate-y-[-1px] transition-all duration-200"
-          >
-            Sign in to play
-          </Link>
-        </>
-      ) : played ? (
+      {played ? (
         <>
           <p className="text-sm text-muted-foreground mb-4">
             You have played today. Come back after the reset for a new route.
           </p>
-          {challenge.attempt!.isCompleted && (
+          {(challenge.attempt ? challenge.attempt.isCompleted : guestAttempt?.result) && (
             <Link
-              href={`/results/daily/${challenge.attempt!.runId}`}
+              href={challenge.attempt ? `/results/daily/${challenge.attempt.runId}` : "/daily/result"}
               className="block w-full rounded-xl border border-border/60 bg-card px-4 py-3 text-center text-sm font-semibold hover:bg-secondary transition-all duration-200"
             >
               View your result
@@ -135,6 +161,19 @@ export function DailyChallengeCard() {
           )}
         </>
       ) : (
+        <>
+        {!challenge.signedIn && (
+          <p className="text-sm text-muted-foreground mb-4">
+            No account needed.{" "}
+            <Link
+              href="/login?redirect=/daily"
+              className="text-primary hover:text-primary/80 font-medium transition-colors"
+            >
+              Sign in
+            </Link>{" "}
+            to keep a streak and appear in today&apos;s records.
+          </p>
+        )}
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
           <label className="flex items-start gap-2.5 cursor-pointer group sm:max-w-sm">
             <input
@@ -165,6 +204,7 @@ export function DailyChallengeCard() {
             </p>
           </div>
         </div>
+        </>
       )}
     </div>
   );

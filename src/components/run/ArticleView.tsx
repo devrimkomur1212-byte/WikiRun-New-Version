@@ -8,6 +8,7 @@ import { ArticleSkeleton } from "./ArticleSkeleton";
 import { submitRun } from "@/app/actions/submitRun";
 import { recordDailyCompletion } from "@/app/actions/dailyChallenge";
 import { currentChallengeDate } from "@/lib/daily/challengeDate";
+import { isGuestDailyRun } from "@/lib/daily/guestRun";
 import DOMPurify from "dompurify";
 
 // Configure DOMPurify to add lazy loading to images (performance optimization)
@@ -161,7 +162,7 @@ export function ArticleView({
           completedAt: Date.now(),
         })
       );
-      router.push(`/results/training/${runId}`);
+      router.push(isGuestDailyRun(runId) ? "/daily/result" : `/results/training/${runId}`);
     } else {
       const isDaily = useRunStore.getState().mode === "daily";
       const resultsPath = isDaily ? `/results/daily/${runId}` : `/results/${runId}`;

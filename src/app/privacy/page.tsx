@@ -56,8 +56,8 @@ export default function PrivacyPolicyPage() {
             <div>
               <h3 className="text-base font-semibold text-foreground mb-2">Training Mode Data</h3>
               <p>
-                Your Training Mode runs are stored locally on your device using your browser&apos;s local
-                storage rather than in our database. If you accept analytics cookies, we receive usage
+                Your Training Mode runs, and any Daily Challenge run you play without signing in, are stored
+                locally on your device using your browser&apos;s local storage rather than in our database. If you accept analytics cookies, we receive usage
                 statistics about those runs, such as the difficulty, time taken and number of clicks,
                 as described under PostHog in Section 4.
               </p>
@@ -157,7 +157,7 @@ export default function PrivacyPolicyPage() {
               {[
                 "Essential cookies: Required for authentication and session management. These cookies are necessary for the website to function and cannot be disabled.",
                 "Analytics cookies: Used by PostHog to understand how the game is played. These are only set if you choose \"Accept all\" on our cookie banner.",
-                "Local storage: Used in Training Mode to save your game progress locally on your device.",
+                "Local storage: Used in Training Mode, and for the Daily Challenge when you aren't signed in, to save your game progress locally on your device.",
               ].map((item, i) => (
                 <li key={i} className="flex items-start gap-2">
                   <span className="text-primary mt-1 shrink-0">&#x2022;</span>
