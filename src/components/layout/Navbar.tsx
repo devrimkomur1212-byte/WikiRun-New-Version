@@ -39,6 +39,7 @@ export function Navbar() {
 
   const navLinks = [
     { href: "/play", label: "Play" },
+    { href: "/daily", label: "Daily" },
     { href: "/training", label: "Training" },
     { href: "/leaderboard", label: "Leaderboard" },
     { href: "/dashboard", label: "Dashboard" },

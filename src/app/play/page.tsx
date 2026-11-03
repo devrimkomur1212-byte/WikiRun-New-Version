@@ -8,7 +8,6 @@ import { RANKS } from "@/lib/elo/ranks";
 import { checkPendingMatch } from "@/app/actions/queueRanked";
 import { MatchmakingQueue } from "@/components/matchmaking/MatchmakingQueue";
 import { LivePlayerBadge } from "@/components/presence/LivePlayerBadge";
-import { DailyChallengeCard } from "@/components/daily/DailyChallengeCard";
 import type { Tables } from "@/types/database.types";
 
 type Profile = Tables<"profiles">;
@@ -193,7 +192,20 @@ export default function PlayPage() {
       <div className="grid lg:grid-cols-3 gap-8">
         {/* Game Info */}
         <div className="lg:col-span-2 space-y-8">
-          <DailyChallengeCard />
+          <div className="rounded-2xl border border-border/40 bg-card p-6 shadow-soft flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h3 className="text-lg font-semibold mb-1">Daily Challenge</h3>
+              <p className="text-sm text-muted-foreground">
+                One route, one attempt, the same for everyone. No opponent needed.
+              </p>
+            </div>
+            <Link
+              href="/daily"
+              className="shrink-0 rounded-xl border border-border/60 bg-card px-5 py-2.5 text-center text-sm font-semibold hover:bg-secondary transition-all duration-200"
+            >
+              Today&apos;s route
+            </Link>
+          </div>
 
           <div>
           <h2 className="text-h2 mb-6">About Ranked Mode</h2>

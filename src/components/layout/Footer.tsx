@@ -25,6 +25,11 @@ export function Footer() {
                 </Link>
               </li>
               <li>
+                <Link href="/daily" className="hover:text-foreground transition-colors">
+                  Daily Challenge
+                </Link>
+              </li>
+              <li>
                 <Link href="/training" className="hover:text-foreground transition-colors">
                   Training Mode
                 </Link>

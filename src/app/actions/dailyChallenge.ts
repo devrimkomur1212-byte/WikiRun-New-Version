@@ -146,7 +146,7 @@ export async function startDailyRun(useHints: boolean) {
     return { status: "error" as const, message: error?.message ?? "Failed to start" };
   }
 
-  revalidatePath("/play");
+  revalidatePath("/daily");
 
   return {
     status: "started" as const,
@@ -197,7 +197,7 @@ export async function recordDailyCompletion(challengeDate: string) {
     .update({ daily_streak: streak, daily_last_played: challengeDate } as never)
     .eq("id", user.id);
 
-  revalidatePath("/play");
+  revalidatePath("/daily");
 
   return { streak };
 }
@@ -265,7 +265,7 @@ export async function giveUpDailyRun(runId: string, activeTimeMs: number) {
     } as never)
     .eq("id", user.id);
 
-  revalidatePath("/play");
+  revalidatePath("/daily");
 
   return { status: "forfeited" as const };
 }

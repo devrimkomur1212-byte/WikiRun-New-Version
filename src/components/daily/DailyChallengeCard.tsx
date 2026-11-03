@@ -62,14 +62,28 @@ export function DailyChallengeCard() {
     }
   };
 
-  if (loading || !challenge) return null;
+  if (loading) {
+    return (
+      <div className="rounded-2xl border border-border/40 bg-card p-6 shadow-soft h-44 animate-pulse" />
+    );
+  }
+
+  if (!challenge) {
+    return (
+      <div className="rounded-2xl border border-border/40 bg-card p-6 shadow-soft text-center">
+        <p className="text-sm text-muted-foreground">
+          Today&apos;s route couldn&apos;t be loaded. Please refresh to try again.
+        </p>
+      </div>
+    );
+  }
 
   const played = challenge.attempt !== null;
 
   return (
     <div className="rounded-2xl border border-border/40 bg-card p-6 shadow-soft">
       <div className="flex items-baseline justify-between mb-4 gap-3">
-        <h3 className="text-lg font-semibold">Daily Challenge</h3>
+        <h2 className="text-lg font-semibold">Today&apos;s route</h2>
         {/* Intentionally understated — it is not the point of the card */}
         <span className="text-xs text-muted-foreground/70 shrink-0">
           resets in {countdown}
@@ -100,7 +114,7 @@ export function DailyChallengeCard() {
             leaderboard.
           </p>
           <Link
-            href="/login?redirect=/play"
+            href="/login?redirect=/daily"
             className="block w-full rounded-xl bg-primary px-4 py-3 text-center text-sm font-semibold text-primary-foreground shadow-[0_4px_12px_-2px_hsl(var(--primary)/0.4)] hover:translate-y-[-1px] transition-all duration-200"
           >
             Sign in to play

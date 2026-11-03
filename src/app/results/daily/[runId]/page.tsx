@@ -221,10 +221,10 @@ export default async function DailyResultsPage({ params }: Props) {
       <div className="flex flex-col sm:flex-row gap-3 animate-slide-up">
         <ShareButton shareText={shareText} />
         <Link
-          href="/play"
+          href="/daily"
           className="flex-1 inline-flex items-center justify-center rounded-xl border border-border/60 bg-card px-4 py-3.5 text-sm font-semibold shadow-sm hover:bg-secondary hover:translate-y-[-1px] transition-all duration-200"
         >
-          Back to Play
+          Back to Daily
         </Link>
       </div>
     </div>
